@@ -1,0 +1,155 @@
+{
+  "name": "moodle-test-submit",
+  "displayName": "Moodle Test Submit",
+  "description": "Run your unit tests and submit the results to Moodle",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Testing"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "moodleSubmit.runAndSubmit",
+        "title": "Moodle Submit: Run Tests & Submit to Moodle"
+      },
+      {
+        "command": "moodleSubmit.runTestsOnly",
+        "title": "Moodle Submit: Run Tests (No Submit)"
+      },
+      {
+        "command": "moodleSubmit.login",
+        "title": "Moodle Submit: Sign In with Microsoft"
+      },
+      {
+        "command": "moodleSubmit.logout",
+        "title": "Moodle Submit: Sign Out"
+      },
+      {
+        "command": "moodleSubmit.configureAssignment",
+        "title": "Moodle Submit: Configure Assignment"
+      },
+      {
+        "command": "moodleSubmit.showOutput",
+        "title": "Moodle Submit: Show Log"
+      }
+    ],
+    "configuration": {
+      "title": "Moodle Test Submit",
+      "properties": {
+        "moodleSubmit.serviceUrl": {
+          "type": "string",
+          "default": "",
+          "description": "Base URL of the Java submission service (e.g. https://moodle-bridge.example.edu)."
+        },
+        "moodleSubmit.requestTimeoutMs": {
+          "type": "number",
+          "default": 15000,
+          "description": "Timeout in milliseconds for requests to the submission service."
+        },
+        "moodleSubmit.assignmentKey": {
+          "type": "string",
+          "default": "",
+          "description": "Fallback assignment key, used when the workspace has no .moodle-submit.json file."
+        },
+        "moodleSubmit.authScopes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": ["api://ae4f61d7-7ca1-44b2-b0f4-320e7cdee692/access_as_user", "VSCODE_TENANT:common"],
+          "description": "OAuth scopes to request from the Microsoft authentication provider. The default targets the standard submission service's Entra ID App Registration — only change this if you're pointing at a different deployment."
+        },
+        "moodleSubmit.testCommandOverrides": {
+          "type": "object",
+          "default": {},
+          "description": "Per-adapter command overrides, e.g. { \"maven-junit\": \"mvn -Pci test\" }, for projects with nonstandard build setups."
+        },
+        "moodleSubmit.preferredAdapter": {
+          "type": "string",
+          "enum": [
+            "maven-junit",
+            "gradle-junit",
+            "pytest",
+            "dotnet-test"
+          ],
+          "description": "Force a specific test adapter instead of relying on auto-detection."
+        }
+      }
+    },
+    "walkthroughs": [
+      {
+        "id": "setup",
+        "title": "Set up Moodle Test Submit",
+        "description": "Connect to your course's submission service and submit your first run.",
+        "when": "!moodleSubmit.configured",
+        "steps": [
+          {
+            "id": "configure",
+            "title": "Configure the submission service",
+            "description": "Tell the extension where your course's submission service lives.\n[Configure Assignment](command:moodleSubmit.configureAssignment)",
+            "media": {
+              "markdown": "media/walkthrough/configure.md"
+            },
+            "completionEvents": [
+              "onContext:moodleSubmit.configured"
+            ]
+          },
+          {
+            "id": "signin",
+            "title": "Sign in with Microsoft",
+            "description": "Authenticate so submissions are tied to your account.\n[Sign In with Microsoft](command:moodleSubmit.login)",
+            "media": {
+              "markdown": "media/walkthrough/signin.md"
+            },
+            "completionEvents": [
+              "onCommand:moodleSubmit.login"
+            ]
+          },
+          {
+            "id": "firstRun",
+            "title": "Run tests & submit",
+            "description": "Open a project with tests and submit your first run.\n[Run Tests & Submit](command:moodleSubmit.runAndSubmit)",
+            "media": {
+              "markdown": "media/walkthrough/run.md"
+            },
+            "completionEvents": [
+              "onCommand:moodleSubmit.runAndSubmit"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "node esbuild.js",
+    "watch": "node esbuild.js --watch",
+    "package": "node esbuild.js --production",
+    "typecheck": "tsc --noEmit -p ./",
+    "lint": "eslint src test",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "vscode:prepublish": "npm run package"
+  },
+  "dependencies": {
+    "fast-xml-parser": "^4.4.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/vscode": "^1.90.0",
+    "@typescript-eslint/eslint-plugin": "^7.16.0",
+    "@typescript-eslint/parser": "^7.16.0",
+    "@vscode/vsce": "^2.31.0",
+    "esbuild": "^0.23.0",
+    "eslint": "^8.57.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  }
+}

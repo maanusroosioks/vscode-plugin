@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.example.CalculatorTest" tests="3" failures="1" errors="0" skipped="1" time="0.045">
+  <testcase classname="com.example.CalculatorTest" name="addsTwoNumbers" time="0.012"/>
+  <testcase classname="com.example.CalculatorTest" name="dividesByZero" time="0.008">
+    <failure message="expected exception but none was thrown">java.lang.AssertionError: expected exception but none was thrown
+	at com.example.CalculatorTest.dividesByZero(CalculatorTest.java:42)</failure>
+  </testcase>
+  <testcase classname="com.example.CalculatorTest" name="ignoredForNow" time="0.0">
+    <skipped/>
+  </testcase>
+</testsuite>

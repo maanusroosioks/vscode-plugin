@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<testsuites>
+  <testsuite name="pytest" errors="1" failures="1" skipped="1" tests="4" time="0.031">
+    <testcase classname="test_calculator" name="test_adds_two_numbers" time="0.001"/>
+    <testcase classname="test_calculator" name="test_divides_by_zero" time="0.002">
+      <failure message="AssertionError: expected ZeroDivisionError">assert False
+ +  where False = &lt;built-in function eq&gt;()</failure>
+    </testcase>
+    <testcase classname="test_calculator" name="test_reads_missing_file" time="0.003">
+      <error message="FileNotFoundError: [Errno 2] No such file or directory">Traceback (most recent call last):
+  File "test_calculator.py", line 20, in test_reads_missing_file
+FileNotFoundError: [Errno 2] No such file or directory: 'missing.txt'</error>
+    </testcase>
+    <testcase classname="test_calculator" name="test_not_ready" time="0.0">
+      <skipped message="not implemented yet"/>
+    </testcase>
+  </testsuite>
+</testsuites>
