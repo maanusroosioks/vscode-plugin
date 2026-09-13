@@ -10,19 +10,23 @@ export interface RunCommandResult {
   stderr: string;
 }
 
+/** Receives output as the child process produces it, for live UI streaming. */
+export type OutputSink = (chunk: string, stream: 'stdout' | 'stderr') => void;
+
 export interface RunCommandOptions {
   cwd: string;
   signal?: AbortSignal;
+  onOutput?: OutputSink;
 }
 
 export function runCommand(command: string, options: RunCommandOptions): Promise<RunCommandResult> {
-  const { cwd, signal } = options;
+  const { cwd, signal, onOutput } = options;
   return new Promise((resolvePromise, reject) => {
     if (signal?.aborted) {
       reject(new CancelledError());
       return;
     }
-    exec(
+    const child = exec(
       command,
       { cwd, signal, killSignal: 'SIGTERM', windowsHide: true, maxBuffer: 20 * 1024 * 1024 },
       (error, stdout, stderr) => {
@@ -36,6 +40,11 @@ export function runCommand(command: string, options: RunCommandOptions): Promise
         resolvePromise({ exitCode, stdout, stderr });
       },
     );
+
+    if (onOutput) {
+      child.stdout?.on('data', (chunk: string | Buffer) => onOutput(String(chunk), 'stdout'));
+      child.stderr?.on('data', (chunk: string | Buffer) => onOutput(String(chunk), 'stderr'));
+    }
   });
 }
 

@@ -32,6 +32,7 @@ export const dotnetTestAdapter: TestRunnerAdapter = {
       const { exitCode, stdout, stderr } = await runCommand(command, {
         cwd: folderPath,
         signal: opts.signal,
+        onOutput: opts.onOutput,
       });
       const finishedAt = Date.now();
 

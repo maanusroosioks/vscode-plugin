@@ -3,7 +3,7 @@ import { CancelledError, MoodleSubmitError } from '../core/errors';
 import type { Logger } from '../ui/outputChannel';
 import type { StatusReporter } from '../ui/statusBar';
 
-function describeError(error: unknown): string {
+export function describeError(error: unknown): string {
   if (error instanceof MoodleSubmitError) return error.userMessage;
   if (error instanceof Error) return error.message;
   return String(error);

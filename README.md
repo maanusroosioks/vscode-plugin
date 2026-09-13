@@ -8,6 +8,8 @@ account.
 ## Features
 
 - **Zero-config test detection** for Maven, Gradle, pytest, and .NET.
+- **Results in VS Code's Test Explorer**, with per-test pass/fail state, durations,
+  failure messages, and gutter markers on the failing line.
 - **Run-only mode** to check tests locally without submitting.
 - **Microsoft / Entra ID sign-in** via VS Code's built-in authentication — the
   extension stores no passwords or tokens.
@@ -35,6 +37,33 @@ can instead come from the `moodleSubmit.assignmentKey` setting).
   "projectName": "linked-list"
 }
 ```
+
+## Test Explorer
+
+Runs also appear in VS Code's **Testing** view under a **Moodle Tests** controller.
+The normal run button runs the suite and submits nothing. To submit, use either:
+
+- the **cloud-upload button** in the Testing view toolbar, or
+- **right-click** any folder, suite, or test → *Run Tests & Submit to Moodle*
+
+Both run the project's tests and then submit, exactly like the palette command.
+Submitting is deliberately a button rather than a second run profile, so there is no
+hidden mode to keep track of and no way to submit by accident. Runs that submitted are
+labelled *Run & Submit to Moodle* in the Test Results history.
+
+Test command output streams into the run's terminal, and the tree stays populated
+across window reloads.
+
+Current limitations:
+
+- Tests appear only **after the first run** — Maven and Gradle offer no reliable way
+  to enumerate tests without executing them, so there's no up-front discovery.
+- Running a single test or suite from the gutter still runs the whole project; the
+  per-framework test filters aren't wired up yet.
+- Failing tests get a file **and** a line; passing tests get only the file, since a
+  location is derived from the stack trace.
+- If you also have the Java or Python test extensions installed, their controllers
+  appear alongside this one. Only **Moodle Tests** submits.
 
 ## Commands
 

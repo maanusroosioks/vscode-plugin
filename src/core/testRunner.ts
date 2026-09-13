@@ -6,6 +6,7 @@ import { getPreferredAdapterId, getTestCommandOverrides } from '../config/settin
 import { MoodleSubmitError } from './errors';
 import type { Logger } from '../ui/outputChannel';
 import type { RunSummary } from '../ui/statusBar';
+import type { OutputSink } from '../util/shell';
 
 export class NoWorkspaceFolderError extends MoodleSubmitError {
   constructor() {
@@ -71,12 +72,14 @@ export function summarize(run: NormalizedTestRun): RunSummary {
 export interface RunTestsOptions {
   logger: Logger;
   signal?: AbortSignal;
+  /** Streams the test command's output as it arrives, for live UI display. */
+  onOutput?: OutputSink;
 }
 
 export async function runTests(
   registry: AdapterRegistry,
   folder: vscode.WorkspaceFolder,
-  { logger, signal }: RunTestsOptions,
+  { logger, signal, onOutput }: RunTestsOptions,
 ): Promise<NormalizedTestRun> {
   const adapter = await registry.resolveAdapter(folder.uri.fsPath, {
     preferredAdapterId: getPreferredAdapterId(),
@@ -89,6 +92,7 @@ export async function runTests(
   const result = await adapter.run(folder.uri.fsPath, {
     commandOverride: overrides[adapter.id],
     signal,
+    onOutput,
   });
 
   try {

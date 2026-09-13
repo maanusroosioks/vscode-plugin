@@ -18,29 +18,51 @@
     "commands": [
       {
         "command": "moodleSubmit.runAndSubmit",
-        "title": "Moodle Submit: Run Tests & Submit to Moodle"
+        "title": "Run Tests & Submit to Moodle",
+        "category": "Moodle Submit",
+        "icon": "$(cloud-upload)"
       },
       {
         "command": "moodleSubmit.runTestsOnly",
-        "title": "Moodle Submit: Run Tests (No Submit)"
+        "title": "Run Tests (No Submit)",
+        "category": "Moodle Submit"
       },
       {
         "command": "moodleSubmit.login",
-        "title": "Moodle Submit: Sign In with Microsoft"
+        "title": "Sign In with Microsoft",
+        "category": "Moodle Submit"
       },
       {
         "command": "moodleSubmit.logout",
-        "title": "Moodle Submit: Sign Out"
+        "title": "Sign Out",
+        "category": "Moodle Submit"
       },
       {
         "command": "moodleSubmit.configureAssignment",
-        "title": "Moodle Submit: Configure Assignment"
+        "title": "Configure Assignment",
+        "category": "Moodle Submit"
       },
       {
         "command": "moodleSubmit.showOutput",
-        "title": "Moodle Submit: Show Log"
+        "title": "Show Log",
+        "category": "Moodle Submit"
       }
     ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "moodleSubmit.runAndSubmit",
+          "when": "view == workbench.view.testing",
+          "group": "navigation@100"
+        }
+      ],
+      "testing/item/context": [
+        {
+          "command": "moodleSubmit.runAndSubmit",
+          "group": "moodleSubmit@1"
+        }
+      ]
+    },
     "configuration": {
       "title": "Moodle Test Submit",
       "properties": {
@@ -64,7 +86,7 @@
           "items": {
             "type": "string"
           },
-          "default": ["api://ae4f61d7-7ca1-44b2-b0f4-320e7cdee692/access_as_user", "VSCODE_TENANT:common"],
+          "default": ["api://ae4f61d7-7ca1-44b2-b0f4-320e7cdee692/access_as_user"],
           "description": "OAuth scopes to request from the Microsoft authentication provider. The default targets the standard submission service's Entra ID App Registration — only change this if you're pointing at a different deployment."
         },
         "moodleSubmit.testCommandOverrides": {

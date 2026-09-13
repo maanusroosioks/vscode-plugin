@@ -15,6 +15,7 @@ import { registerConfigureAssignmentCommand } from './commands/configureAssignme
 import { registerShowOutputCommand } from './commands/showOutput';
 import { createOutputChannelLogger, getOutputChannel } from './ui/outputChannel';
 import { createStatusReporter } from './ui/statusBar';
+import { registerTestController } from './ui/testController';
 import { maybePromptOnboarding, refreshConfiguredContext } from './onboarding';
 
 export function activate(context: vscode.ExtensionContext): void {
@@ -35,8 +36,16 @@ export function activate(context: vscode.ExtensionContext): void {
   const status = createStatusReporter();
   context.subscriptions.push(getOutputChannel(), status);
 
-  registerRunAndSubmitCommand(context, registry, authService, apiClient, logger, status);
-  registerRunTestsOnlyCommand(context, registry, logger, status);
+  const testControl = registerTestController(context, {
+    registry,
+    authService,
+    apiClient,
+    logger,
+    status,
+  });
+
+  registerRunAndSubmitCommand(context, testControl, logger, status);
+  registerRunTestsOnlyCommand(context, testControl, logger, status);
   registerLoginCommand(context, authService);
   registerLogoutCommand(context, authService);
   registerConfigureAssignmentCommand(context, authService);

@@ -1,14 +1,14 @@
 import * as vscode from 'vscode';
-import type { AdapterRegistry } from '../adapters/registry';
-import { resolveWorkspaceFolder, runTests, summarize } from '../core/testRunner';
+import { resolveWorkspaceFolder } from '../core/testRunner';
 import type { Logger } from '../ui/outputChannel';
 import type { StatusReporter } from '../ui/statusBar';
+import type { MoodleTestControl } from '../ui/testController';
 import { withProgress } from '../ui/progress';
 import { handleCommandError } from './errorHandling';
 
 export function registerRunTestsOnlyCommand(
   context: vscode.ExtensionContext,
-  registry: AdapterRegistry,
+  control: MoodleTestControl,
   logger: Logger,
   status: StatusReporter,
 ): void {
@@ -17,11 +17,12 @@ export function registerRunTestsOnlyCommand(
       try {
         await withProgress('Moodle Submit', async (progress) => {
           const folder = await resolveWorkspaceFolder();
-          status.running();
-          progress.report('Running tests…');
-          const run = await runTests(registry, folder, { logger, signal: progress.signal });
-          status.result(summarize(run));
-          logger.log('Run complete (not submitted).');
+          await control.performRun({
+            folder,
+            submit: false,
+            signal: progress.signal,
+            report: progress.report,
+          });
         });
       } catch (error) {
         handleCommandError(error, logger, status);
