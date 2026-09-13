@@ -26,7 +26,8 @@ export const pytestAdapter: TestRunnerAdapter = {
     const cleanup = (): Promise<void> => cleanupReport(reportPath);
 
     try {
-      const baseCommand = opts.commandOverride ?? 'pytest';
+      const pythonExe = process.platform === 'win32' ? 'python' : 'python3';
+      const baseCommand = opts.commandOverride ?? `${pythonExe} -m pytest`;
       const command = `${baseCommand} --junit-xml="${reportPath}"`;
       const startedAt = Date.now();
       const { exitCode, stdout, stderr } = await runCommand(command, {
