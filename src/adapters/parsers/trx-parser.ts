@@ -1,5 +1,6 @@
 import { XMLParser } from 'fast-xml-parser';
 import type { NormalizedTestCase, TestStatus } from '../../core/types';
+import { parseReportFile } from './report-file';
 
 interface TrxErrorInfo {
   Message?: string;
@@ -51,7 +52,12 @@ function mapOutcome(outcome: string): TestStatus {
 
 export function parseTrx(xml: string): NormalizedTestCase[] {
   const doc = parser.parse(xml);
-  const testRun = doc.TestRun ?? {};
+  // See parseJUnitXml: a missing root element means an unusable file, not an
+  // empty run, and the two need to be reported differently.
+  if (doc.TestRun === undefined) {
+    throw new Error('no <TestRun> element found — this is not a TRX report');
+  }
+  const testRun = doc.TestRun;
   const results: TrxUnitTestResult[] = testRun.Results?.UnitTestResult ?? [];
   const definitions: TrxUnitTest[] = testRun.TestDefinitions?.UnitTest ?? [];
 
@@ -71,4 +77,9 @@ export function parseTrx(xml: string): NormalizedTestCase[] {
       stackTrace: errorInfo?.StackTrace,
     };
   });
+}
+
+/** Reads one TRX report, throwing {@link ReportUnavailableError} if it can't be used. */
+export function parseTrxFile(path: string): Promise<NormalizedTestCase[]> {
+  return parseReportFile(path, parseTrx);
 }

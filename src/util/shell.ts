@@ -1,7 +1,7 @@
 import { exec } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { access, rm } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { join, resolve, sep } from 'node:path';
 import { CancelledError } from '../core/errors';
 
 export interface RunCommandResult {
@@ -57,6 +57,12 @@ export async function pathExists(path: string): Promise<boolean> {
   }
 }
 
+/** True when any of `names` exists directly inside `folderPath`. */
+export async function anyExists(folderPath: string, names: string[]): Promise<boolean> {
+  const found = await Promise.all(names.map((name) => pathExists(join(folderPath, name))));
+  return found.includes(true);
+}
+
 export async function removeDir(path: string): Promise<void> {
   await rm(path, { recursive: true, force: true });
 }
@@ -70,7 +76,8 @@ export function tempReportPath(adapterId: string, extension: string): string {
 
 export async function cleanupReport(path: string): Promise<void> {
   const normalized = resolve(path);
-  if (!normalized.startsWith(resolve(tmpdir()))) {
+  // Segment-wise: a bare prefix would also accept `<tmp>2/...` and tmpdir itself.
+  if (!normalized.startsWith(resolve(tmpdir()) + sep)) {
     return;
   }
   await rm(normalized, { recursive: true, force: true });

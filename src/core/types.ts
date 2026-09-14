@@ -15,5 +15,4 @@ export interface NormalizedTestRun {
   startedAt: number;
   finishedAt: number;
   results: NormalizedTestCase[];
-  rawReportPath?: string;
 }

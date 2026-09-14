@@ -1,4 +1,5 @@
 import type { NormalizedTestRun } from '../core/types';
+import type { Logger } from '../ui/outputChannel';
 import type { OutputSink } from '../util/shell';
 
 export interface RunOptions {
@@ -6,6 +7,8 @@ export interface RunOptions {
   signal?: AbortSignal;
   /** Streams the test command's output as it arrives, for live UI display. */
   onOutput?: OutputSink;
+  /** Receives adapter diagnostics, not the test command's own output. */
+  logger?: Logger;
 }
 
 export interface AdapterRunResult {
@@ -13,6 +16,8 @@ export interface AdapterRunResult {
   stdout: string;
   stderr: string;
   exitCode: number;
+  /** Why the report could not be read; explains an empty `run.results`. */
+  reportError?: string;
   cleanup(): Promise<void>;
 }
 

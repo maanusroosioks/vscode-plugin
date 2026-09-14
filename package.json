@@ -92,7 +92,7 @@
         "moodleSubmit.testCommandOverrides": {
           "type": "object",
           "default": {},
-          "description": "Per-adapter command overrides, e.g. { \"maven-junit\": \"mvn -Pci test\" }, for projects with nonstandard build setups."
+          "description": "Per-adapter command overrides, e.g. { \"maven-junit\": \"mvn -Pci test\" }, for projects with nonstandard build setups. Give a single command with no shell operators (&&, |, ;): the reporting flags that let the extension read the results are appended to whatever you put here."
         },
         "moodleSubmit.preferredAdapter": {
           "type": "string",

@@ -1,45 +1,30 @@
 import { join } from 'node:path';
-import type { TestRunnerAdapter } from './types';
-import { pathExists, runCommand } from '../util/shell';
-import { parseJUnitXmlDirectory } from './parsers/junit-xml-parser';
+import { defineAdapter } from './define';
+import { pathExists } from '../util/shell';
+import { clearReportDirs, parseJUnitXmlDirectory } from './parsers/junit-xml-parser';
 
-export const mavenJunitAdapter: TestRunnerAdapter = {
+/** One per module in a reactor build, under `<module>/target/`. */
+const REPORT_DIR = 'surefire-reports';
+
+export const mavenJunitAdapter = defineAdapter({
   id: 'maven-junit',
   displayName: 'Maven (JUnit)',
   language: 'java',
 
-  async detect(folderPath) {
-    return pathExists(join(folderPath, 'pom.xml'));
-  },
+  detect: (folderPath) => pathExists(join(folderPath, 'pom.xml')),
 
-  async run(folderPath, opts) {
-    const command = opts.commandOverride ?? 'mvn -B test';
-    const startedAt = Date.now();
-    const { exitCode, stdout, stderr } = await runCommand(command, {
-      cwd: folderPath,
-      signal: opts.signal,
-      onOutput: opts.onOutput,
-    });
-    const finishedAt = Date.now();
-
-    const results = await parseJUnitXmlDirectory(folderPath, {
-      dirName: 'surefire-reports',
-      since: startedAt,
-    });
+  async prepare(folderPath, opts) {
+    // Surefire leaves reports in place for modules it doesn't reach this run.
+    await clearReportDirs(folderPath, REPORT_DIR);
 
     return {
-      run: {
-        adapterId: 'maven-junit',
-        language: 'java',
-        startedAt,
-        finishedAt,
-        results,
-        rawReportPath: folderPath,
-      },
-      stdout,
-      stderr,
-      exitCode,
-      cleanup: async () => {},
+      command: opts.commandOverride ?? 'mvn -B test',
+      parse: (startedAt) =>
+        parseJUnitXmlDirectory(folderPath, {
+          reportDir: REPORT_DIR,
+          since: startedAt,
+          onWarning: (message) => opts.logger?.log(message),
+        }),
     };
   },
-};
+});

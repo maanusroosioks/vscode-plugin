@@ -15,11 +15,14 @@ export class NoWorkspaceFolderError extends MoodleSubmitError {
 }
 
 export class NoTestResultsError extends MoodleSubmitError {
-  constructor(adapter: TestRunnerAdapter, exitCode: number) {
+  constructor(adapter: TestRunnerAdapter, exitCode: number, reportError?: string) {
     super(
-      `${adapter.displayName} produced no test results (exit code ${exitCode}). ` +
-        'This usually means the test command itself failed to run — check the output log above for ' +
-        'a missing tool (e.g. mvn/gradle/pytest/dotnet not on PATH) or a build error, rather than an actual 0-test run.',
+      reportError
+        ? `${adapter.displayName} exited with code ${exitCode} and its report could not be used: ${reportError}. ` +
+            'Check the output log above for what the test command reported.'
+        : `${adapter.displayName} produced no test results (exit code ${exitCode}). ` +
+            'This usually means the test command itself failed to run — check the output log above for ' +
+            'a missing tool (e.g. mvn/gradle/pytest/dotnet not on PATH) or a build error, rather than an actual 0-test run.',
     );
   }
 }
@@ -81,18 +84,29 @@ export async function runTests(
   folder: vscode.WorkspaceFolder,
   { logger, signal, onOutput }: RunTestsOptions,
 ): Promise<NormalizedTestRun> {
-  const adapter = await registry.resolveAdapter(folder.uri.fsPath, {
-    preferredAdapterId: getPreferredAdapterId(),
+  const folderPath = folder.uri.fsPath;
+  const preferredAdapterId = getPreferredAdapterId();
+  const adapter = await registry.resolveAdapter(folderPath, {
+    preferredAdapterId,
     pickFromMultiple: pickAdapter,
   });
 
-  logger.log(`Detected adapter: ${adapter.displayName}`);
+  // A forced adapter bypasses detection, so flag one that doesn't fit the folder.
+  if (preferredAdapterId && !(await adapter.detect(folderPath))) {
+    logger.log(
+      `Warning: moodleSubmit.preferredAdapter forces ${adapter.displayName}, but this folder has none of ` +
+        'its marker files. Clear that setting to go back to auto-detection.',
+    );
+  } else {
+    logger.log(`Detected adapter: ${adapter.displayName}`);
+  }
 
   const overrides = getTestCommandOverrides();
-  const result = await adapter.run(folder.uri.fsPath, {
+  const result = await adapter.run(folderPath, {
     commandOverride: overrides[adapter.id],
     signal,
     onOutput,
+    logger,
   });
 
   try {
@@ -103,7 +117,7 @@ export async function runTests(
 
     const { run } = result;
     if (run.results.length === 0) {
-      throw new NoTestResultsError(adapter, result.exitCode);
+      throw new NoTestResultsError(adapter, result.exitCode, result.reportError);
     }
 
     const summary = summarize(run);
