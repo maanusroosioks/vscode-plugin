@@ -37,21 +37,29 @@ export interface TestSourceFile {
   truncated?: boolean;
 }
 
-export interface TestEvidenceEntry {
-  source: TestSource;
-  /** Local only — feeds the pre-submit warning. Deliberately not part of the payload. */
-  integrity: TestIntegrity;
-}
-
-export interface TestEvidence {
+/** The half bound for the grader. Everything the payload builder is allowed to see. */
+export interface TestEvidencePayload {
   /** Index-aligned with `run.results`. */
-  entries: TestEvidenceEntry[];
+  sources: TestSource[];
   /** Each distinct test file once, so a FILE-kind result costs one copy rather than one each. */
   files: TestSourceFile[];
   /** Set only when the student switched source capture off. */
   captureDisabled?: boolean;
   /** Set only when the student was shown the pre-submit warning and chose to submit anyway. */
   warningAcknowledged?: boolean;
+}
+
+/** Names its own test, so the warning path never indexes back into the run to find out whose it is. */
+export interface TestIntegrityEntry {
+  testSuite?: string;
+  testName: string;
+  integrity: TestIntegrity;
+}
+
+export interface TestEvidence {
+  payload: TestEvidencePayload;
+  /** Local only — feeds the pre-submit warning. Unreachable from `payload`, so it cannot be sent. */
+  integrity: TestIntegrityEntry[];
 }
 
 export interface CollectEvidenceOptions {
@@ -102,13 +110,19 @@ function toRelative(folderPath: string, absolutePath: string): string {
   return path.split(sep).join('/');
 }
 
+function truncationNotice(removed: number): string {
+  return `\n… [truncated by moodle-test-submit: ${removed} more characters]`;
+}
+
+/** The notice outruns a short snippet, so it is reserved from the budget rather than the cap. */
+function noticeReserve(code: string): number {
+  return truncationNotice(code.length).length;
+}
+
 function capCode(code: string, limit: number): { code: string; truncated: boolean } {
   if (code.length <= limit) return { code, truncated: false };
   const removed = code.length - limit;
-  return {
-    code: `${code.slice(0, limit)}\n… [truncated by moodle-test-submit: ${removed} more characters]`,
-    truncated: true,
-  };
+  return { code: `${code.slice(0, limit)}${truncationNotice(removed)}`, truncated: true };
 }
 
 export async function collectTestEvidence(
@@ -118,7 +132,8 @@ export async function collectTestEvidence(
 ): Promise<TestEvidence> {
   const read = options.readFile ?? ((path: string): Promise<string> => readFile(path, 'utf8'));
   const loaded = new Map<string, SourceFile | undefined>();
-  const entries: TestEvidenceEntry[] = [];
+  const sources: TestSource[] = [];
+  const integrity: TestIntegrityEntry[] = [];
   let budget = Math.max(0, options.maxTotalChars);
 
   // One read and one scan per file per run, however many of its tests ran.
@@ -144,24 +159,26 @@ export async function collectTestEvidence(
   };
 
   for (const testCase of run.results) {
+    const record = (source: TestSource, signals: TestIntegrity): void => {
+      sources.push(source);
+      integrity.push({ testSuite: testCase.testSuite, testName: testCase.testName, integrity: signals });
+    };
+
     const location = await resolver.resolveTestLocation(testCase.testSuite, testCase.stackTrace);
     const file = location ? await loadFile(location.file) : undefined;
     if (!file) {
-      entries.push({ source: { kind: 'NONE' }, integrity: unlocatedIntegrity() });
+      record({ kind: 'NONE' }, unlocatedIntegrity());
       continue;
     }
 
-    // An unknown language leaves `declarations` empty, which matchDeclaration already handles.
-    const declaration = matchDeclaration(
-      file.declarations,
-      testCase.testName,
-      testCase.testSuite,
-      location?.line,
-    );
-    const integrity =
-      declaration && file.language
-        ? analyzeDeclaration(declaration, file.language)
-        : unlocatedIntegrity();
+    // An unknown language means nothing was scanned, so there is nothing to match against.
+    const language = file.language;
+    let declaration: TestDeclaration | undefined;
+    let signals = unlocatedIntegrity();
+    if (language) {
+      declaration = matchDeclaration(file.declarations, testCase.testName, testCase.testSuite, location?.line);
+      if (declaration) signals = analyzeDeclaration(declaration, language);
+    }
 
     const source: TestSource = {
       kind: declaration ? 'TEST' : 'FILE',
@@ -175,14 +192,18 @@ export async function collectTestEvidence(
     };
 
     // A FILE-kind result carries no code of its own: the file is in `files`, charged once.
-    if (options.captureSource && budget > 0 && declaration) {
-      const capped = capCode(snippetOf(file, declaration), Math.min(options.maxTestChars, budget));
-      source.code = capped.code;
-      if (capped.truncated) source.truncated = true;
-      budget -= capped.code.length;
+    if (options.captureSource && declaration) {
+      const snippet = snippetOf(file, declaration);
+      const room = budget - noticeReserve(snippet);
+      if (room > 0) {
+        const capped = capCode(snippet, Math.min(options.maxTestChars, room));
+        source.code = capped.code;
+        if (capped.truncated) source.truncated = true;
+        budget -= capped.code.length;
+      }
     }
 
-    entries.push({ source, integrity });
+    record(source, signals);
   }
 
   // Charged after the snippets, so a pathological project still gets its per-result view.
@@ -190,8 +211,9 @@ export async function collectTestEvidence(
   for (const file of loaded.values()) {
     if (!file) continue;
     const entry: TestSourceFile = { path: file.relativePath, sha256: file.hash };
-    if (options.captureSource && budget > 0) {
-      const capped = capCode(file.text, budget);
+    const room = budget - noticeReserve(file.text);
+    if (options.captureSource && room > 0) {
+      const capped = capCode(file.text, room);
       entry.content = capped.code;
       if (capped.truncated) entry.truncated = true;
       budget -= capped.code.length;
@@ -200,26 +222,23 @@ export async function collectTestEvidence(
   }
   files.sort((a, b) => a.path.localeCompare(b.path));
 
-  return { entries, files, captureDisabled: options.captureSource ? undefined : true };
+  return {
+    payload: { sources, files, captureDisabled: options.captureSource ? undefined : true },
+    integrity,
+  };
 }
 
 /**
  * A framework-reported SKIPPED status is deliberately not a reason on its own: it is legitimate
  * and already visible in the results, and warning on it would train students to click through.
  */
-export function describeSuspiciousTests(
-  evidence: TestEvidence,
-  run: NormalizedTestRun,
-): SuspiciousTest[] {
-  const total = run.results.length;
-  const unlocated = evidence.entries.filter((entry) => !entry.integrity.located).length;
+export function describeSuspiciousTests(entries: TestIntegrityEntry[]): SuspiciousTest[] {
+  const total = entries.length;
+  const unlocated = entries.filter((entry) => !entry.integrity.located).length;
   const reportUnlocated = total > 0 && unlocated / total > UNLOCATED_SHARE;
   const findings: SuspiciousTest[] = [];
 
-  run.results.forEach((testCase, index) => {
-    const integrity = evidence.entries[index]?.integrity;
-    if (!integrity) return;
-
+  for (const { testSuite, testName, integrity } of entries) {
     const reasons: string[] = [];
     if (integrity.empty) {
       reasons.push('has an empty body');
@@ -234,9 +253,9 @@ export function describeSuspiciousTests(
     }
 
     if (reasons.length > 0) {
-      findings.push({ testSuite: testCase.testSuite, testName: testCase.testName, reasons });
+      findings.push({ testSuite, testName, reasons });
     }
-  });
+  }
 
   return findings;
 }

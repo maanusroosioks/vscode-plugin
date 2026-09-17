@@ -1,6 +1,6 @@
 import type { NormalizedTestRun } from './types';
 import type { SubmissionMetadata } from './submissionMetadata';
-import type { TestEvidence, TestSource, TestSourceFile } from './testEvidence';
+import type { TestEvidencePayload, TestSource, TestSourceFile } from './testEvidence';
 import type {
   TestResultRequest,
   TestRunRequest,
@@ -57,7 +57,7 @@ function toSourceFileRequest(file: TestSourceFile): TestSourceFileRequest {
 export function buildTestRunRequest(
   run: NormalizedTestRun,
   metadata: SubmissionMetadata,
-  evidence?: TestEvidence,
+  evidence?: TestEvidencePayload,
 ): TestRunRequest {
   if (run.results.length === 0) {
     throw new InvalidPayloadError('Test run produced no results — nothing to submit.');
@@ -70,7 +70,7 @@ export function buildTestRunRequest(
     if (!testCase.testName.trim()) {
       throw new InvalidPayloadError('Encountered a test result with a blank testName.');
     }
-    const entry = evidence?.entries[index];
+    const source = evidence?.sources[index];
     return {
       testSuite: textField(testCase.testSuite, MAX_255),
       testName: textField(testCase.testName, MAX_255) as string,
@@ -78,7 +78,7 @@ export function buildTestRunRequest(
       durationMs: testCase.durationMs !== undefined ? Math.max(0, testCase.durationMs) : undefined,
       message: sanitizeForParamText(testCase.message),
       stackTraceHash: testCase.stackTrace ? sha256Hex(testCase.stackTrace) : undefined,
-      source: entry ? toSourceRequest(entry.source) : undefined,
+      source: source ? toSourceRequest(source) : undefined,
     };
   });
 

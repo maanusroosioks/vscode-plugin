@@ -35,13 +35,13 @@ function run(
 }
 
 function codeFor(evidence: TestEvidence, index: number): string {
-  const source = evidence.entries[index].source;
+  const source = evidence.payload.sources[index];
   expect(source.kind).toBe('TEST');
   return source.code as string;
 }
 
 function located(evidence: TestEvidence): number {
-  return evidence.entries.filter((entry) => entry.integrity.located).length;
+  return evidence.integrity.filter((entry) => entry.integrity.located).length;
 }
 
 const pythonSample = resolve(EXAMPLES, 'python-sample');
@@ -68,8 +68,10 @@ describe.skipIf(!existsSync(pythonSample))('python-sample', () => {
     const evidence = await evidenceFor(pythonSample, testRun);
 
     expect(located(evidence)).toBe(5);
-    expect(evidence.entries.every((entry) => entry.source.kind === 'TEST')).toBe(true);
-    expect(evidence.entries.every((entry) => entry.source.filePath === 'test_calculator.py')).toBe(true);
+    expect(evidence.payload.sources.every((source) => source.kind === 'TEST')).toBe(true);
+    expect(
+      evidence.payload.sources.every((source) => source.filePath === 'test_calculator.py'),
+    ).toBe(true);
   });
 
   it('maps both parametrized ids onto the same declaration, decorator included', async () => {
@@ -77,8 +79,8 @@ describe.skipIf(!existsSync(pythonSample))('python-sample', () => {
 
     expect(codeFor(evidence, 1)).toContain('@pytest.mark.parametrize');
     expect(codeFor(evidence, 1)).toContain('assert divide(a, b) == expected');
-    expect(evidence.entries[1].source.normalizedCodeHash).toBe(
-      evidence.entries[2].source.normalizedCodeHash,
+    expect(evidence.payload.sources[1].normalizedCodeHash).toBe(
+      evidence.payload.sources[2].normalizedCodeHash,
     );
     expect(codeFor(evidence, 1)).not.toContain('def test_divide_by_zero_raises');
   });
@@ -86,8 +88,8 @@ describe.skipIf(!existsSync(pythonSample))('python-sample', () => {
   it('counts assertions and finds nothing suspicious', async () => {
     const evidence = await evidenceFor(pythonSample, testRun);
 
-    expect(describeSuspiciousTests(evidence, testRun)).toEqual([]);
-    expect(evidence.entries.every((entry) => (entry.integrity.assertionCount ?? 0) > 0)).toBe(true);
+    expect(describeSuspiciousTests(evidence.integrity)).toEqual([]);
+    expect(evidence.integrity.every((entry) => (entry.integrity.assertionCount ?? 0) > 0)).toBe(true);
   });
 });
 
@@ -113,7 +115,7 @@ describe.skipIf(!existsSync(mavenSample) || !existsSync(gradleSample))('java sam
     const evidence = await evidenceFor(folder, testRun);
 
     expect(located(evidence)).toBe(3);
-    expect(evidence.entries[0].source.filePath).toBe(
+    expect(evidence.payload.sources[0].filePath).toBe(
       'src/test/java/com/example/calculator/CalculatorTest.java',
     );
     expect(codeFor(evidence, 0)).toContain('assertEquals(5, Calculator.add(2, 3));');
@@ -139,7 +141,7 @@ describe.skipIf(!existsSync(dotnetSample))('dotnet-sample', () => {
     const evidence = await evidenceFor(dotnetSample, testRun);
 
     expect(located(evidence)).toBe(3);
-    expect(evidence.entries[0].source.filePath).toBe('CalculatorTests.cs');
+    expect(evidence.payload.sources[0].filePath).toBe('CalculatorTests.cs');
     expect(codeFor(evidence, 1)).toContain('[Theory]');
     expect(codeFor(evidence, 1)).toContain('[InlineData(10, 2, 5)]');
     expect(codeFor(evidence, 1)).toContain('[InlineData(9, 3, 3)]');
@@ -147,7 +149,7 @@ describe.skipIf(!existsSync(dotnetSample))('dotnet-sample', () => {
 
   it('keeps angle brackets in generic assertions all the way through the payload', async () => {
     const evidence = await evidenceFor(dotnetSample, testRun);
-    const request = buildTestRunRequest(testRun, metadata, evidence);
+    const request = buildTestRunRequest(testRun, metadata, evidence.payload);
 
     // Sanitized for Moodle PARAM_TEXT, but the captured code must survive verbatim.
     expect(request.results[2].source?.code).toContain('Assert.Throws<DivideByZeroException>');

@@ -3,7 +3,7 @@ import { buildTestRunRequest, InvalidPayloadError } from '../../../src/core/payl
 import { sha256Hex } from '../../../src/core/stackTraceHash';
 import type { NormalizedTestRun } from '../../../src/core/types';
 import type { SubmissionMetadata } from '../../../src/core/submissionMetadata';
-import type { TestEvidence } from '../../../src/core/testEvidence';
+import type { TestEvidencePayload } from '../../../src/core/testEvidence';
 
 const metadata: SubmissionMetadata = {
   assignmentKey: 'assignment-101',
@@ -110,28 +110,18 @@ describe('buildTestRunRequest', () => {
   });
 });
 
-function sampleEvidence(overrides: Partial<TestEvidence> = {}): TestEvidence {
+function sampleEvidence(overrides: Partial<TestEvidencePayload> = {}): TestEvidencePayload {
   return {
-    entries: [
+    sources: [
       {
-        source: {
-          kind: 'TEST',
-          filePath: 'tests/test_calculator.py',
-          startLine: 4,
-          endLine: 5,
-          code: 'def test_adds():\n    assert add(2, 3) == 5',
-          normalizedCodeHash: 'b'.repeat(64),
-        },
-        integrity: {
-          located: true,
-          assertionCount: 1,
-          empty: false,
-        },
+        kind: 'TEST',
+        filePath: 'tests/test_calculator.py',
+        startLine: 4,
+        endLine: 5,
+        code: 'def test_adds():\n    assert add(2, 3) == 5',
+        normalizedCodeHash: 'b'.repeat(64),
       },
-      {
-        source: { kind: 'NONE' },
-        integrity: { located: false },
-      },
+      { kind: 'NONE' },
     ],
     files: [
       {
@@ -217,7 +207,7 @@ describe('buildTestRunRequest — captured source', () => {
 
   it('keeps angle brackets in captured source — PARAM_TEXT stripping must not touch code', () => {
     const evidence = sampleEvidence();
-    evidence.entries[0].source.code =
+    evidence.sources[0].code =
       'public void t() {\n    Assert.Throws<DivideByZeroException>(() -> divide(1, 0));\n}';
 
     const request = buildTestRunRequest(sampleRun(), metadata, evidence);
@@ -227,7 +217,7 @@ describe('buildTestRunRequest — captured source', () => {
 
   it('truncates the file path', () => {
     const evidence = sampleEvidence();
-    evidence.entries[0].source.filePath = `${'p'.repeat(300)}.py`;
+    evidence.sources[0].filePath = `${'p'.repeat(300)}.py`;
 
     const request = buildTestRunRequest(sampleRun(), metadata, evidence);
 
@@ -236,8 +226,8 @@ describe('buildTestRunRequest — captured source', () => {
 
   it('passes the hash through untouched when the code was truncated', () => {
     const evidence = sampleEvidence();
-    evidence.entries[0].source.code = 'def test_adds():\n… [truncated by moodle-test-submit: 12 more characters]';
-    evidence.entries[0].source.truncated = true;
+    evidence.sources[0].code = 'def test_adds():\n… [truncated by moodle-test-submit: 12 more characters]';
+    evidence.sources[0].truncated = true;
 
     const request = buildTestRunRequest(sampleRun(), metadata, evidence);
 

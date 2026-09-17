@@ -297,17 +297,18 @@ export function registerTestController(
         folderPath: folder.uri.fsPath,
         ...getSourceCaptureSettings(),
       });
+      const { sources, files } = evidence.payload;
       let captured = 0;
       let chars = 0;
-      for (const { source } of evidence.entries) {
+      for (const source of sources) {
         if (source.code === undefined) continue;
         captured++;
         chars += source.code.length;
       }
-      const fileChars = evidence.files.reduce((total, file) => total + (file.content?.length ?? 0), 0);
+      const fileChars = files.reduce((total, file) => total + (file.content?.length ?? 0), 0);
       deps.logger.log(
         `Captured source for ${captured}/${run.results.length} tests (${chars} chars) ` +
-          `and ${evidence.files.length} file(s) (${fileChars} chars).`,
+          `and ${files.length} file(s) (${fileChars} chars).`,
       );
       return evidence;
     } catch (error) {
@@ -367,9 +368,10 @@ export function registerTestController(
         return;
       }
 
-      let evidence = await gatherEvidence(run, folder, resolver);
+      const evidence = await gatherEvidence(run, folder, resolver);
+      let evidencePayload = evidence?.payload;
       if (evidence) {
-        const findings = describeSuspiciousTests(evidence, run);
+        const findings = describeSuspiciousTests(evidence.integrity);
         for (const finding of findings) {
           deps.logger.log(`Integrity warning: ${describeFinding(finding)}`);
         }
@@ -379,7 +381,7 @@ export function registerTestController(
             testRun.appendOutput(toCrlf('\nSubmission cancelled.\n'));
             return;
           }
-          evidence = { ...evidence, warningAcknowledged: true };
+          evidencePayload = { ...evidence.payload, warningAcknowledged: true };
         }
       }
 
@@ -390,7 +392,7 @@ export function registerTestController(
           folderPath: folder.uri.fsPath,
           projectName: folder.name,
           assignmentKeySetting: getAssignmentKeySetting(),
-          evidence,
+          evidence: evidencePayload,
         },
         { apiClient: deps.apiClient, logger: deps.logger },
       );

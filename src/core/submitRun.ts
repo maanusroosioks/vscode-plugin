@@ -2,7 +2,7 @@ import type { MoodleApiClient, SubmitResult } from '../services/moodleApiClient'
 import type { Logger } from '../ui/outputChannel';
 import { buildTestRunRequest } from './payload';
 import { readGitCommitHash, readWorkspaceConfigFile, resolveSubmissionMetadata } from './submissionMetadata';
-import type { TestEvidence } from './testEvidence';
+import type { TestEvidencePayload } from './testEvidence';
 import type { NormalizedTestRun } from './types';
 
 export interface SubmitRunContext {
@@ -10,7 +10,7 @@ export interface SubmitRunContext {
   projectName: string;
   assignmentKeySetting?: string;
   /** Absent when source capture was skipped or failed — submission goes ahead either way. */
-  evidence?: TestEvidence;
+  evidence?: TestEvidencePayload;
 }
 
 export interface SubmitRunDeps {

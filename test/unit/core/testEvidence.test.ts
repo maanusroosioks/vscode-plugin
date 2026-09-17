@@ -73,7 +73,7 @@ describe('collectTestEvidence — source capture', () => {
       PYTHON_FILES,
     );
 
-    const source = evidence.entries[0].source;
+    const source = evidence.payload.sources[0];
     expect(source.kind).toBe('TEST');
     expect(source.filePath).toBe('test_calculator.py');
     expect(source.code).toContain('@pytest.mark.parametrize');
@@ -89,11 +89,11 @@ describe('collectTestEvidence — source capture', () => {
       PYTHON_FILES,
     );
 
-    expect(evidence.entries[0].source.kind).toBe('FILE');
-    expect(evidence.entries[0].source.code).toBeUndefined();
-    expect(evidence.entries[0].source.filePath).toBe('test_calculator.py');
-    expect(evidence.entries[0].integrity).toEqual({ located: false });
-    expect(evidence.files[0].content).toBe(PYTHON_SOURCE);
+    expect(evidence.payload.sources[0].kind).toBe('FILE');
+    expect(evidence.payload.sources[0].code).toBeUndefined();
+    expect(evidence.payload.sources[0].filePath).toBe('test_calculator.py');
+    expect(evidence.integrity[0].integrity).toEqual({ located: false });
+    expect(evidence.payload.files[0].content).toBe(PYTHON_SOURCE);
   });
 
   it('sends one copy of the file however many of its tests went unmatched', async () => {
@@ -105,9 +105,9 @@ describe('collectTestEvidence — source capture', () => {
     }));
     const { evidence } = await collect(run(unmatched), PYTHON_FILES);
 
-    expect(evidence.entries.every((entry) => entry.source.kind === 'FILE')).toBe(true);
-    expect(evidence.entries.every((entry) => entry.source.code === undefined)).toBe(true);
-    expect(evidence.files).toHaveLength(1);
+    expect(evidence.payload.sources.every((source) => source.kind === 'FILE')).toBe(true);
+    expect(evidence.payload.sources.every((source) => source.code === undefined)).toBe(true);
+    expect(evidence.payload.files).toHaveLength(1);
 
     const serialized = JSON.stringify(evidence);
     expect(serialized.split('assert add(2, 3) == 5').length - 1).toBe(1);
@@ -120,8 +120,8 @@ describe('collectTestEvidence — source capture', () => {
       PYTHON_FILES,
     );
 
-    expect(evidence.entries[0].source).toEqual({ kind: 'NONE' });
-    expect(evidence.entries[0].integrity.located).toBe(false);
+    expect(evidence.payload.sources[0]).toEqual({ kind: 'NONE' });
+    expect(evidence.integrity[0].integrity.located).toBe(false);
   });
 
   it('reads and scans each file once, however many of its tests ran', async () => {
@@ -145,7 +145,7 @@ describe('collectTestEvidence — paths must not leak the student', () => {
       { [join('tests', 'test_calculator.py')]: PYTHON_SOURCE },
     );
 
-    expect(evidence.entries[0].source.filePath).toBe('tests/test_calculator.py');
+    expect(evidence.payload.sources[0].filePath).toBe('tests/test_calculator.py');
   });
 
   it('degrades to the basename for a file outside the workspace folder', async () => {
@@ -171,8 +171,8 @@ describe('collectTestEvidence — paths must not leak the student', () => {
       readFile: async () => 'def test_x():\n    assert True\n',
     });
 
-    expect(evidence.entries[0].source.filePath).toBe('test_outside.py');
-    expect(evidence.entries[0].source.filePath).not.toContain(sep);
+    expect(evidence.payload.sources[0].filePath).toBe('test_outside.py');
+    expect(evidence.payload.sources[0].filePath).not.toContain(sep);
     expect(relative(FOLDER, outside).startsWith('..')).toBe(true);
   });
 });
@@ -186,10 +186,10 @@ describe('collectTestEvidence — hashes', () => {
     const full = await collect(single, PYTHON_FILES);
     const capped = await collect(single, PYTHON_FILES, { maxTestChars: 12 });
 
-    expect(capped.evidence.entries[0].source.truncated).toBe(true);
-    expect(capped.evidence.entries[0].source.code).toContain('more characters]');
-    expect(capped.evidence.entries[0].source.normalizedCodeHash).toBe(
-      full.evidence.entries[0].source.normalizedCodeHash,
+    expect(capped.evidence.payload.sources[0].truncated).toBe(true);
+    expect(capped.evidence.payload.sources[0].code).toContain('more characters]');
+    expect(capped.evidence.payload.sources[0].normalizedCodeHash).toBe(
+      full.evidence.payload.sources[0].normalizedCodeHash,
     );
   });
 
@@ -201,11 +201,11 @@ describe('collectTestEvidence — hashes', () => {
     const before = await collect(testRun, { 'test_add.py': source });
     const after = await collect(testRun, { 'test_add.py': reformatted });
 
-    expect(after.evidence.entries[0].source.normalizedCodeHash).toBe(
-      before.evidence.entries[0].source.normalizedCodeHash,
+    expect(after.evidence.payload.sources[0].normalizedCodeHash).toBe(
+      before.evidence.payload.sources[0].normalizedCodeHash,
     );
     // The file did change, which is what the file hash is for.
-    expect(after.evidence.files[0].sha256).not.toBe(before.evidence.files[0].sha256);
+    expect(after.evidence.payload.files[0].sha256).not.toBe(before.evidence.payload.files[0].sha256);
   });
 
   it('changes normalizedCodeHash when a line moves out of a Python block', async () => {
@@ -217,8 +217,8 @@ describe('collectTestEvidence — hashes', () => {
     const before = await collect(testRun, { 'test_x.py': nested });
     const after = await collect(testRun, { 'test_x.py': flat });
 
-    expect(after.evidence.entries[0].source.normalizedCodeHash).not.toBe(
-      before.evidence.entries[0].source.normalizedCodeHash,
+    expect(after.evidence.payload.sources[0].normalizedCodeHash).not.toBe(
+      before.evidence.payload.sources[0].normalizedCodeHash,
     );
   });
 
@@ -230,8 +230,8 @@ describe('collectTestEvidence — hashes', () => {
     const before = await collect(testRun, { 'test_x.py': fourSpace });
     const after = await collect(testRun, { 'test_x.py': twoSpace });
 
-    expect(after.evidence.entries[0].source.normalizedCodeHash).toBe(
-      before.evidence.entries[0].source.normalizedCodeHash,
+    expect(after.evidence.payload.sources[0].normalizedCodeHash).toBe(
+      before.evidence.payload.sources[0].normalizedCodeHash,
     );
   });
 
@@ -249,8 +249,8 @@ describe('collectTestEvidence — hashes', () => {
     const before = await collect(testRun, { [file]: wide });
     const after = await collect(testRun, { [file]: narrow });
 
-    expect(after.evidence.entries[0].source.normalizedCodeHash).not.toBe(
-      before.evidence.entries[0].source.normalizedCodeHash,
+    expect(after.evidence.payload.sources[0].normalizedCodeHash).not.toBe(
+      before.evidence.payload.sources[0].normalizedCodeHash,
     );
   });
 
@@ -260,8 +260,8 @@ describe('collectTestEvidence — hashes', () => {
     const before = await collect(testRun, { 'test_x.py': 'def test_x():\n    assert f(v) == "a b"\n' });
     const after = await collect(testRun, { 'test_x.py': 'def test_x():\n    assert  f(v)  ==  "a b"\n' });
 
-    expect(after.evidence.entries[0].source.normalizedCodeHash).toBe(
-      before.evidence.entries[0].source.normalizedCodeHash,
+    expect(after.evidence.payload.sources[0].normalizedCodeHash).toBe(
+      before.evidence.payload.sources[0].normalizedCodeHash,
     );
   });
 
@@ -274,8 +274,8 @@ describe('collectTestEvidence — hashes', () => {
       'test_add.py': 'def test_add():\n    assert add(2, 3) == 6\n',
     });
 
-    expect(after.evidence.entries[0].source.normalizedCodeHash).not.toBe(
-      before.evidence.entries[0].source.normalizedCodeHash,
+    expect(after.evidence.payload.sources[0].normalizedCodeHash).not.toBe(
+      before.evidence.payload.sources[0].normalizedCodeHash,
     );
   });
 
@@ -288,7 +288,7 @@ describe('collectTestEvidence — hashes', () => {
       PYTHON_FILES,
     );
 
-    expect(evidence.files).toEqual([
+    expect(evidence.payload.files).toEqual([
       {
         path: 'test_calculator.py',
         sha256: sha256Hex(PYTHON_SOURCE),
@@ -296,8 +296,8 @@ describe('collectTestEvidence — hashes', () => {
       },
     ]);
     // filePath is the join key from a result back into files.
-    for (const entry of evidence.entries) {
-      expect(entry.source.filePath).toBe(evidence.files[0].path);
+    for (const source of evidence.payload.sources) {
+      expect(source.filePath).toBe(evidence.payload.files[0].path);
     }
   });
 });
@@ -310,37 +310,54 @@ describe('collectTestEvidence — budget and opt-out', () => {
   ]);
 
   it('drops code but keeps hashes and integrity once the budget is spent', async () => {
-    const { evidence } = await collect(three, PYTHON_FILES, { maxTotalChars: 40 });
+    const { evidence } = await collect(three, PYTHON_FILES, { maxTotalChars: 120 });
 
-    expect(evidence.entries[0].source.code).toBeDefined();
+    expect(evidence.payload.sources[0].code).toBeDefined();
 
     // Still located, so still `TEST` — only the code is missing.
-    const dropped = evidence.entries[evidence.entries.length - 1];
-    expect(dropped.source.kind).toBe('TEST');
-    expect(dropped.source.code).toBeUndefined();
-    expect(dropped.source.normalizedCodeHash).toHaveLength(64);
-    expect(evidence.files[0].sha256).toHaveLength(64);
-    expect(dropped.integrity.located).toBe(true);
+    const dropped = evidence.payload.sources[evidence.payload.sources.length - 1];
+    expect(dropped.kind).toBe('TEST');
+    expect(dropped.code).toBeUndefined();
+    expect(dropped.normalizedCodeHash).toHaveLength(64);
+    expect(evidence.payload.files[0].sha256).toHaveLength(64);
+    expect(evidence.integrity[evidence.integrity.length - 1].integrity.located).toBe(true);
   });
 
   it('opting out of source still submits hashes', async () => {
     const { evidence } = await collect(three, PYTHON_FILES, { captureSource: false });
 
-    for (const entry of evidence.entries) {
-      expect(entry.source.kind).toBe('TEST');
-      expect(entry.source.code).toBeUndefined();
-      expect(entry.source.normalizedCodeHash).toHaveLength(64);
-      expect(entry.integrity.located).toBe(true);
+    for (const source of evidence.payload.sources) {
+      expect(source.kind).toBe('TEST');
+      expect(source.code).toBeUndefined();
+      expect(source.normalizedCodeHash).toHaveLength(64);
     }
-    expect(evidence.captureDisabled).toBe(true);
-    expect(evidence.entries.filter((entry) => entry.integrity.empty).length).toBe(1);
+    expect(evidence.integrity.every((entry) => entry.integrity.located)).toBe(true);
+    expect(evidence.payload.captureDisabled).toBe(true);
+    expect(evidence.integrity.filter((entry) => entry.integrity.empty).length).toBe(1);
+  });
+
+  it('keeps the truncation notice inside the budget it reports against', async () => {
+    const maxTotalChars = 120;
+    const { evidence } = await collect(three, PYTHON_FILES, { maxTotalChars, maxTestChars: 50 });
+
+    const captured = evidence.payload.sources.reduce(
+      (total, source) => total + (source.code?.length ?? 0),
+      0,
+    );
+    const inFiles = evidence.payload.files.reduce(
+      (total, file) => total + (file.content?.length ?? 0),
+      0,
+    );
+
+    expect(evidence.payload.sources.some((source) => source.truncated)).toBe(true);
+    expect(captured + inFiles).toBeLessThanOrEqual(maxTotalChars);
   });
 
   it('leaves captureDisabled unset when capture is on', async () => {
     const { evidence } = await collect(three, PYTHON_FILES);
 
-    expect(evidence.captureDisabled).toBeUndefined();
-    expect(evidence.warningAcknowledged).toBeUndefined();
+    expect(evidence.payload.captureDisabled).toBeUndefined();
+    expect(evidence.payload.warningAcknowledged).toBeUndefined();
   });
 });
 
@@ -357,7 +374,7 @@ describe('collectTestEvidence — local integrity signals', () => {
       PYTHON_FILES,
     );
 
-    const integrity = evidence.entries.map((entry) => entry.integrity);
+    const integrity = evidence.integrity.map((entry) => entry.integrity);
     expect(integrity.filter((entry) => entry.located)).toHaveLength(4);
     expect(integrity.filter((entry) => entry.empty)).toHaveLength(2);
     expect(integrity.filter((entry) => entry.located && entry.assertionCount === 0)).toHaveLength(2);
@@ -381,16 +398,16 @@ describe('collectTestEvidence — tamper detection', () => {
     const before = await collect(testRun, PYTHON_FILES);
     const after = await collect(testRun, { 'test_calculator.py': gutted });
 
-    expect(after.evidence.entries[0].source.normalizedCodeHash).not.toBe(
-      before.evidence.entries[0].source.normalizedCodeHash,
+    expect(after.evidence.payload.sources[0].normalizedCodeHash).not.toBe(
+      before.evidence.payload.sources[0].normalizedCodeHash,
     );
-    expect(after.evidence.entries[1].source.normalizedCodeHash).toBe(
-      before.evidence.entries[1].source.normalizedCodeHash,
+    expect(after.evidence.payload.sources[1].normalizedCodeHash).toBe(
+      before.evidence.payload.sources[1].normalizedCodeHash,
     );
-    expect(after.evidence.files[0].sha256).not.toBe(before.evidence.files[0].sha256);
+    expect(after.evidence.payload.files[0].sha256).not.toBe(before.evidence.payload.files[0].sha256);
 
-    expect(after.evidence.entries[0].integrity).toMatchObject({ empty: true, assertionCount: 0 });
-    expect(describeSuspiciousTests(after.evidence, testRun)).toEqual([
+    expect(after.evidence.integrity[0].integrity).toMatchObject({ empty: true, assertionCount: 0 });
+    expect(describeSuspiciousTests(after.evidence.integrity)).toEqual([
       {
         testSuite: 'test_calculator',
         testName: 'test_add_returns_sum',
@@ -409,14 +426,12 @@ describe('collectTestEvidence — tamper detection', () => {
     const before = await collect(testRun, PYTHON_FILES);
     const after = await collect(testRun, { 'test_calculator.py': sabotaged });
 
-    for (const [index, entry] of after.evidence.entries.entries()) {
-      expect(entry.source.normalizedCodeHash).toBe(
-        before.evidence.entries[index].source.normalizedCodeHash,
-      );
+    for (const [index, source] of after.evidence.payload.sources.entries()) {
+      expect(source.normalizedCodeHash).toBe(before.evidence.payload.sources[index].normalizedCodeHash);
     }
-    expect(after.evidence.files[0].sha256).not.toBe(before.evidence.files[0].sha256);
+    expect(after.evidence.payload.files[0].sha256).not.toBe(before.evidence.payload.files[0].sha256);
     // Nothing about the tests themselves looks wrong — the file hash is the only handle.
-    expect(describeSuspiciousTests(after.evidence, testRun)).toEqual([]);
+    expect(describeSuspiciousTests(after.evidence.integrity)).toEqual([]);
   });
 
   it('flags a test whose assertion was removed but whose body still does work', async () => {
@@ -426,8 +441,8 @@ describe('collectTestEvidence — tamper detection', () => {
     );
     const { evidence } = await collect(testRun, { 'test_calculator.py': declawed });
 
-    expect(evidence.entries[0].integrity).toMatchObject({ empty: false, assertionCount: 0 });
-    expect(describeSuspiciousTests(evidence, testRun)[0].reasons).toEqual(['makes no assertions']);
+    expect(evidence.integrity[0].integrity).toMatchObject({ empty: false, assertionCount: 0 });
+    expect(describeSuspiciousTests(evidence.integrity)[0].reasons).toEqual(['makes no assertions']);
   });
 
   it('flags a test that was disabled rather than fixed', async () => {
@@ -437,10 +452,10 @@ describe('collectTestEvidence — tamper detection', () => {
     );
     const { evidence } = await collect(testRun, { 'test_calculator.py': disabled });
 
-    expect(evidence.entries[0].integrity).toMatchObject({
+    expect(evidence.integrity[0].integrity).toMatchObject({
       skipMarker: '@pytest.mark.skip(reason="later")',
     });
-    expect(describeSuspiciousTests(evidence, testRun)[0].reasons).toEqual([
+    expect(describeSuspiciousTests(evidence.integrity)[0].reasons).toEqual([
       'is marked as skipped (@pytest.mark.skip(reason="later"))',
     ]);
   });
@@ -455,7 +470,7 @@ describe('describeSuspiciousTests', () => {
     ]);
     const { evidence } = await collect(testRun, PYTHON_FILES);
 
-    expect(describeSuspiciousTests(evidence, testRun)).toEqual([
+    expect(describeSuspiciousTests(evidence.integrity)).toEqual([
       { testSuite: 'test_calculator', testName: 'test_empty_body', reasons: ['has an empty body'] },
       {
         testSuite: 'test_calculator',
@@ -471,7 +486,7 @@ describe('describeSuspiciousTests', () => {
     ]);
     const { evidence } = await collect(testRun, PYTHON_FILES);
 
-    expect(describeSuspiciousTests(evidence, testRun)).toEqual([]);
+    expect(describeSuspiciousTests(evidence.integrity)).toEqual([]);
   });
 
   it('stays quiet about unlocated tests when they are a small minority', async () => {
@@ -484,7 +499,7 @@ describe('describeSuspiciousTests', () => {
     const testRun = run(results);
     const { evidence } = await collect(testRun, PYTHON_FILES);
 
-    expect(describeSuspiciousTests(evidence, testRun)).toEqual([]);
+    expect(describeSuspiciousTests(evidence.integrity)).toEqual([]);
   });
 
   it('reports unlocated tests once they dominate the run', async () => {
@@ -494,7 +509,7 @@ describe('describeSuspiciousTests', () => {
     ]);
     const { evidence } = await collect(testRun, PYTHON_FILES);
 
-    expect(describeSuspiciousTests(evidence, testRun).map((f) => f.reasons)).toEqual([
+    expect(describeSuspiciousTests(evidence.integrity).map((f) => f.reasons)).toEqual([
       ["could not be found in the project's source"],
       ["could not be found in the project's source"],
     ]);
