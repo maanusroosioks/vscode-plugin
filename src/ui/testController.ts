@@ -1,8 +1,17 @@
 import * as vscode from 'vscode';
 import type { AdapterRegistry } from '../adapters/registry';
 import type { AuthService } from '../auth/authService';
-import { getAssignmentKeySetting } from '../config/settings';
+import {
+  getAssignmentKeySetting,
+  getSourceCaptureSettings,
+  getWarnOnSuspiciousTests,
+} from '../config/settings';
 import { TestLocationResolver } from '../core/testLocation';
+import {
+  collectTestEvidence,
+  describeSuspiciousTests,
+  type TestEvidence,
+} from '../core/testEvidence';
 import {
   folderItemId,
   suiteDescription,
@@ -18,6 +27,7 @@ import type { NormalizedTestCase, NormalizedTestRun } from '../core/types';
 import { describeError, handleCommandError } from '../commands/errorHandling';
 import { ensureConfigured } from '../onboarding';
 import type { MoodleApiClient } from '../services/moodleApiClient';
+import { confirmDegradedRun, describeFinding } from './degradedRunPrompt';
 import type { Logger } from './outputChannel';
 import type { StatusReporter } from './statusBar';
 
@@ -184,9 +194,9 @@ export function registerTestController(
     testRun: vscode.TestRun,
     folder: vscode.WorkspaceFolder,
     run: NormalizedTestRun,
+    resolver: TestLocationResolver,
   ): Promise<void> {
     const folderPath = folder.uri.fsPath;
-    const resolver = new TestLocationResolver(folderPath, run.language);
     const root = folderItem(folder);
     const remembered: KnownTest[] = [];
     const liveSuites = new Set<string>();
@@ -275,6 +285,38 @@ export function registerTestController(
     }
   }
 
+  // ------------------------------------------------------------ evidence ----
+
+  async function gatherEvidence(
+    run: NormalizedTestRun,
+    folder: vscode.WorkspaceFolder,
+    resolver: TestLocationResolver,
+  ): Promise<TestEvidence | undefined> {
+    try {
+      const evidence = await collectTestEvidence(run, resolver, {
+        folderPath: folder.uri.fsPath,
+        ...getSourceCaptureSettings(),
+      });
+      let captured = 0;
+      let chars = 0;
+      for (const { source } of evidence.entries) {
+        if (source.code === undefined) continue;
+        captured++;
+        chars += source.code.length;
+      }
+      const fileChars = evidence.files.reduce((total, file) => total + (file.content?.length ?? 0), 0);
+      deps.logger.log(
+        `Captured source for ${captured}/${run.results.length} tests (${chars} chars) ` +
+          `and ${evidence.files.length} file(s) (${fileChars} chars).`,
+      );
+      return evidence;
+    } catch (error) {
+      // Capturing source must never be able to break a submission.
+      deps.logger.log(`Could not capture test source: ${describeError(error)}`);
+      return undefined;
+    }
+  }
+
   // ----------------------------------------------------------------- run ----
 
   async function performRun({
@@ -313,13 +355,32 @@ export function registerTestController(
         onOutput: (chunk) => testRun.appendOutput(toCrlf(chunk)),
       });
 
-      await applyResults(testRun, folder, run);
+      // One resolver for the whole run: its probe cache is what makes the second pass over the
+      // results, for source capture, cost no extra filesystem work.
+      const resolver = new TestLocationResolver(folder.uri.fsPath, run.language);
+      await applyResults(testRun, folder, run, resolver);
       const summary = summarize(run);
       deps.status.result(summary);
 
       if (!submit) {
         deps.logger.log('Run complete (not submitted).');
         return;
+      }
+
+      let evidence = await gatherEvidence(run, folder, resolver);
+      if (evidence) {
+        const findings = describeSuspiciousTests(evidence, run);
+        for (const finding of findings) {
+          deps.logger.log(`Integrity warning: ${describeFinding(finding)}`);
+        }
+        if (findings.length > 0 && getWarnOnSuspiciousTests()) {
+          if (!(await confirmDegradedRun(findings, run.results.length))) {
+            deps.logger.log('Submission cancelled at the integrity warning.');
+            testRun.appendOutput(toCrlf('\nSubmission cancelled.\n'));
+            return;
+          }
+          evidence = { ...evidence, warningAcknowledged: true };
+        }
       }
 
       report?.('Submitting to Moodle…');
@@ -329,6 +390,7 @@ export function registerTestController(
           folderPath: folder.uri.fsPath,
           projectName: folder.name,
           assignmentKeySetting: getAssignmentKeySetting(),
+          evidence,
         },
         { apiClient: deps.apiClient, logger: deps.logger },
       );

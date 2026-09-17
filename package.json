@@ -103,6 +103,26 @@
             "dotnet-test"
           ],
           "description": "Force a specific test adapter instead of relying on auto-detection."
+        },
+        "moodleSubmit.submitTestSource": {
+          "type": "boolean",
+          "default": true,
+          "description": "Submit the source of each test that ran, so your instructor sees the code behind each result. Turning this off still submits the checksums and the assertion counts."
+        },
+        "moodleSubmit.maxTestSourceChars": {
+          "type": "number",
+          "default": 8000,
+          "description": "Largest amount of source captured for a single test. Anything longer is truncated; the checksum is still taken over the whole test."
+        },
+        "moodleSubmit.maxTotalSourceChars": {
+          "type": "number",
+          "default": 200000,
+          "description": "Largest amount of source captured across one submission. Once it's used up, later tests submit checksums only."
+        },
+        "moodleSubmit.warnOnSuspiciousTests": {
+          "type": "boolean",
+          "default": true,
+          "description": "Warn before submitting when tests look emptied or disabled. The warning never blocks a submission."
         }
       }
     },

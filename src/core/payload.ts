@@ -1,6 +1,12 @@
 import type { NormalizedTestRun } from './types';
 import type { SubmissionMetadata } from './submissionMetadata';
-import type { TestResultRequest, TestRunRequest } from '../services/httpTypes';
+import type { TestEvidence, TestSource, TestSourceFile } from './testEvidence';
+import type {
+  TestResultRequest,
+  TestRunRequest,
+  TestSourceFileRequest,
+  TestSourceRequest,
+} from '../services/httpTypes';
 import { sha256Hex } from './stackTraceHash';
 import { MoodleSubmitError } from './errors';
 
@@ -18,7 +24,41 @@ function truncate(value: string | undefined, max: number): string | undefined {
   return value.length > max ? value.slice(0, max) : value;
 }
 
-export function buildTestRunRequest(run: NormalizedTestRun, metadata: SubmissionMetadata): TestRunRequest {
+
+function sanitizeForParamText(value: string | undefined): string | undefined {
+  return value === undefined ? undefined : value.replace(/[<>]/g, '');
+}
+
+function textField(value: string | undefined, max: number): string | undefined {
+  return truncate(sanitizeForParamText(value), max);
+}
+
+function toSourceRequest(source: TestSource): TestSourceRequest {
+  return {
+    kind: source.kind,
+    filePath: truncate(source.filePath, MAX_255),
+    startLine: source.startLine,
+    endLine: source.endLine,
+    code: source.code,
+    truncated: source.truncated,
+    normalizedCodeHash: source.normalizedCodeHash,
+  };
+}
+
+function toSourceFileRequest(file: TestSourceFile): TestSourceFileRequest {
+  return {
+    path: truncate(file.path, MAX_255) as string,
+    sha256: file.sha256,
+    content: file.content,
+    truncated: file.truncated,
+  };
+}
+
+export function buildTestRunRequest(
+  run: NormalizedTestRun,
+  metadata: SubmissionMetadata,
+  evidence?: TestEvidence,
+): TestRunRequest {
   if (run.results.length === 0) {
     throw new InvalidPayloadError('Test run produced no results — nothing to submit.');
   }
@@ -26,17 +66,19 @@ export function buildTestRunRequest(run: NormalizedTestRun, metadata: Submission
     throw new InvalidPayloadError('assignmentKey must not be blank.');
   }
 
-  const results: TestResultRequest[] = run.results.map((testCase): TestResultRequest => {
+  const results: TestResultRequest[] = run.results.map((testCase, index): TestResultRequest => {
     if (!testCase.testName.trim()) {
       throw new InvalidPayloadError('Encountered a test result with a blank testName.');
     }
+    const entry = evidence?.entries[index];
     return {
-      testSuite: truncate(testCase.testSuite, MAX_255),
-      testName: truncate(testCase.testName, MAX_255) as string,
+      testSuite: textField(testCase.testSuite, MAX_255),
+      testName: textField(testCase.testName, MAX_255) as string,
       status: testCase.status,
       durationMs: testCase.durationMs !== undefined ? Math.max(0, testCase.durationMs) : undefined,
-      message: testCase.message,
+      message: sanitizeForParamText(testCase.message),
       stackTraceHash: testCase.stackTrace ? sha256Hex(testCase.stackTrace) : undefined,
+      source: entry ? toSourceRequest(entry.source) : undefined,
     };
   });
 
@@ -48,5 +90,8 @@ export function buildTestRunRequest(run: NormalizedTestRun, metadata: Submission
     startedAt: run.startedAt,
     finishedAt: run.finishedAt,
     results,
+    testFiles: evidence && evidence.files.length > 0 ? evidence.files.map(toSourceFileRequest) : undefined,
+    captureDisabled: evidence?.captureDisabled,
+    warningAcknowledged: evidence?.warningAcknowledged,
   };
 }

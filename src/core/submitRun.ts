@@ -2,12 +2,15 @@ import type { MoodleApiClient, SubmitResult } from '../services/moodleApiClient'
 import type { Logger } from '../ui/outputChannel';
 import { buildTestRunRequest } from './payload';
 import { readGitCommitHash, readWorkspaceConfigFile, resolveSubmissionMetadata } from './submissionMetadata';
+import type { TestEvidence } from './testEvidence';
 import type { NormalizedTestRun } from './types';
 
 export interface SubmitRunContext {
   folderPath: string;
   projectName: string;
   assignmentKeySetting?: string;
+  /** Absent when source capture was skipped or failed — submission goes ahead either way. */
+  evidence?: TestEvidence;
 }
 
 export interface SubmitRunDeps {
@@ -17,7 +20,7 @@ export interface SubmitRunDeps {
 
 export async function submitRun(
   run: NormalizedTestRun,
-  { folderPath, projectName, assignmentKeySetting }: SubmitRunContext,
+  { folderPath, projectName, assignmentKeySetting, evidence }: SubmitRunContext,
   { apiClient, logger }: SubmitRunDeps,
 ): Promise<SubmitResult> {
   const workspaceFile = await readWorkspaceConfigFile(folderPath);
@@ -28,7 +31,7 @@ export async function submitRun(
     gitCommitHash: await readGitCommitHash(folderPath),
   });
 
-  const payload = buildTestRunRequest(run, metadata);
+  const payload = buildTestRunRequest(run, metadata, evidence);
   const response = await apiClient.submitResults(payload);
   logger.log(`Submission service responded ${response.status}: ${JSON.stringify(response.body)}`);
   return response;

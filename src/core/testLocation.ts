@@ -19,7 +19,7 @@ export type ExistsFn = (path: string) => Promise<boolean>;
 export type ListDirsFn = (path: string) => Promise<string[]>;
 
 const SOURCE_EXTENSIONS: Record<string, string[]> = {
-  java: ['.java', '.kt', '.scala', '.groovy'],
+  java: ['.java', '.kt', '.kts', '.scala', '.groovy'],
   python: ['.py'],
   csharp: ['.cs'],
 };
