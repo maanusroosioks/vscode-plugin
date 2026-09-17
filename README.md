@@ -102,7 +102,7 @@ whose test couldn't be isolated (`kind: "FILE"`) carries no code of its own and 
 from here via its `filePath`, so a framework the extension can't parse costs one copy of
 the file rather than one copy per test.
 
-Deliberately **not** submitted: raw stack traces (only a hash), absolute file paths (a
+Deliberately **not** submitted: raw stack traces or any hash of one, absolute file paths (a
 path outside the workspace folder is reduced to its filename), and anything about your
 machine or account beyond the identity in your sign-in token.
 

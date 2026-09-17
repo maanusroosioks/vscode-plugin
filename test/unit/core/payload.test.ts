@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { buildTestRunRequest, InvalidPayloadError } from '../../../src/core/payload';
-import { sha256Hex } from '../../../src/core/stackTraceHash';
 import type { NormalizedTestRun } from '../../../src/core/types';
 import type { SubmissionMetadata } from '../../../src/core/submissionMetadata';
 import type { TestEvidencePayload } from '../../../src/core/testEvidence';
@@ -44,14 +43,13 @@ describe('buildTestRunRequest', () => {
       startedAt: 1000,
       finishedAt: 2000,
       results: [
-        { testSuite: 'test_calculator', testName: 'test_adds', status: 'PASSED', durationMs: 5, message: undefined, stackTraceHash: undefined },
+        { testSuite: 'test_calculator', testName: 'test_adds', status: 'PASSED', durationMs: 5, message: undefined },
         {
           testSuite: 'test_calculator',
           testName: 'test_divides_by_zero',
           status: 'FAILED',
           durationMs: 3,
           message: 'boom',
-          stackTraceHash: sha256Hex('Traceback ...'),
         },
       ],
     });
@@ -61,12 +59,6 @@ describe('buildTestRunRequest', () => {
     const request = buildTestRunRequest(sampleRun(), metadata);
     const serialized = JSON.stringify(request);
     expect(serialized).not.toContain('Traceback');
-  });
-
-  it('produces a stackTraceHash no longer than 64 characters', () => {
-    const request = buildTestRunRequest(sampleRun(), metadata);
-    const failed = request.results.find((r) => r.testName === 'test_divides_by_zero');
-    expect(failed?.stackTraceHash).toHaveLength(64);
   });
 
   it('throws InvalidPayloadError when there are no results', () => {

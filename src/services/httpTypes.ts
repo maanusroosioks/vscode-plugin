@@ -44,7 +44,6 @@ export interface TestResultRequest {
   status: TestResultStatus;
   durationMs?: number;
   message?: string;
-  stackTraceHash?: string;
   source?: TestSourceRequest;
 }
 

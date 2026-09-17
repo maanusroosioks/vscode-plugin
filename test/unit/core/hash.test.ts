@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { sha256Hex } from '../../../src/core/stackTraceHash';
+import { sha256Hex } from '../../../src/core/hash';
 
 describe('sha256Hex', () => {
   it('produces a 64-character lowercase hex digest', () => {

@@ -7,7 +7,6 @@ import type {
   TestSourceFileRequest,
   TestSourceRequest,
 } from '../services/httpTypes';
-import { sha256Hex } from './stackTraceHash';
 import { MoodleSubmitError } from './errors';
 
 export class InvalidPayloadError extends MoodleSubmitError {
@@ -77,7 +76,6 @@ export function buildTestRunRequest(
       status: testCase.status,
       durationMs: testCase.durationMs !== undefined ? Math.max(0, testCase.durationMs) : undefined,
       message: sanitizeForParamText(testCase.message),
-      stackTraceHash: testCase.stackTrace ? sha256Hex(testCase.stackTrace) : undefined,
       source: source ? toSourceRequest(source) : undefined,
     };
   });

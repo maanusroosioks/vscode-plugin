@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join, relative, resolve, sep } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { sha256Hex } from '../../../src/core/stackTraceHash';
+import { sha256Hex } from '../../../src/core/hash';
 import { TestLocationResolver } from '../../../src/core/testLocation';
 import {
   collectTestEvidence,

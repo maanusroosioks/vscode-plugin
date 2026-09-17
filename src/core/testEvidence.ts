@@ -2,7 +2,7 @@
 
 import { readFile } from 'node:fs/promises';
 import { basename, isAbsolute, relative, sep } from 'node:path';
-import { sha256Hex } from './stackTraceHash';
+import { sha256Hex } from './hash';
 import type { TestLocationResolver } from './testLocation';
 import { analyzeDeclaration, unlocatedIntegrity, type TestIntegrity } from './testIntegrity';
 import {
