@@ -5,7 +5,7 @@ import {
   scanTestDeclarations,
   type SourceLanguage,
   type TestDeclaration,
-} from '../../../src/core/testSource';
+} from '../../../src/source';
 
 const FIXTURES_DIR = join(__dirname, '../fixtures/source');
 

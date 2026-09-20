@@ -1,4 +1,3 @@
-// Free of `vscode` imports so this stays unit-testable without a vscode mock.
 import { readdir } from 'node:fs/promises';
 import { isAbsolute, resolve } from 'node:path';
 import { pathExists } from '../util/shell';

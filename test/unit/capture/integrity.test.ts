@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { analyzeDeclaration, unlocatedIntegrity } from '../../../src/core/testIntegrity';
-import type { SourceLanguage, TestDeclaration } from '../../../src/core/testSource';
+import { analyzeDeclaration, unlocatedIntegrity } from '../../../src/capture/integrity';
+import type { SourceLanguage, TestDeclaration } from '../../../src/source';
 import { declarationNamed, declarations } from '../helpers/sourceFixtures';
 
 const { python, java, kotlin, csharp } = declarations;

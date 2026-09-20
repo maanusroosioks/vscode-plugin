@@ -16,7 +16,7 @@ import { registerShowOutputCommand } from './commands/showOutput';
 import { createOutputChannelLogger, getOutputChannel } from './ui/outputChannel';
 import { createStatusReporter } from './ui/statusBar';
 import { registerTestController } from './ui/testController';
-import { maybePromptOnboarding, refreshConfiguredContext } from './onboarding';
+import { maybePromptOnboarding, refreshConfiguredContext } from './ui/onboarding';
 
 export function activate(context: vscode.ExtensionContext): void {
   const registry = new AdapterRegistry();

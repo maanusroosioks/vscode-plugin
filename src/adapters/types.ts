@@ -1,5 +1,5 @@
 import type { NormalizedTestRun } from '../core/types';
-import type { Logger } from '../ui/outputChannel';
+import type { Logger } from '../core/ports';
 import type { OutputSink } from '../util/shell';
 
 export interface RunOptions {

@@ -4,7 +4,7 @@ import {
   maskCommentsAndStrings,
   sliceLines,
   type TestDeclaration,
-} from '../../../src/core/testSource';
+} from '../../../src/source';
 import { declarationNamed as find, fixture, scan } from '../helpers/sourceFixtures';
 
 function names(declarations: TestDeclaration[]): string[] {

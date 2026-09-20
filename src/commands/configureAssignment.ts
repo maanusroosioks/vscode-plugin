@@ -10,7 +10,7 @@ import {
   setServiceUrl,
 } from '../config/settings';
 import { pathExists } from '../util/shell';
-import { refreshConfiguredContext } from '../onboarding';
+import { refreshConfiguredContext } from '../ui/onboarding';
 
 const WORKSPACE_CONFIG_FILE_NAME = '.moodle-submit.json';
 

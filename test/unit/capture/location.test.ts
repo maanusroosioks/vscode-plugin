@@ -1,6 +1,6 @@
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { TestLocationResolver, parseStackFrames } from '../../../src/core/testLocation';
+import { TestLocationResolver, parseStackFrames } from '../../../src/capture/location';
 
 const ROOT = resolve('/work/proj');
 

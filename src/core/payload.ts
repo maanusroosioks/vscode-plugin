@@ -1,6 +1,6 @@
 import type { NormalizedTestRun } from './types';
 import type { SubmissionMetadata } from './submissionMetadata';
-import type { TestEvidencePayload, TestSource, TestSourceFile } from './testEvidence';
+import type { TestEvidencePayload, TestSource, TestSourceFile } from '../capture/evidence';
 import type {
   TestResultRequest,
   TestRunRequest,

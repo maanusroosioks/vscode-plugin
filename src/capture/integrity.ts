@@ -2,7 +2,7 @@
 // Computed over files the student owns, so they were never trustworthy as evidence; the grader
 // gets the test source instead.
 
-import { maskCommentsAndStrings, type SourceLanguage, type TestDeclaration } from './testSource';
+import { maskCommentsAndStrings, type SourceLanguage, type TestDeclaration } from '../source';
 
 export interface TestIntegrity {
   /** Whether a declaration for this result was found in the project's source. */

@@ -1,8 +1,8 @@
 import type { MoodleApiClient, SubmitResult } from '../services/moodleApiClient';
-import type { Logger } from '../ui/outputChannel';
+import type { Logger } from './ports';
 import { buildTestRunRequest } from './payload';
 import { readGitCommitHash, readWorkspaceConfigFile, resolveSubmissionMetadata } from './submissionMetadata';
-import type { TestEvidencePayload } from './testEvidence';
+import type { TestEvidencePayload } from '../capture/evidence';
 import type { NormalizedTestRun } from './types';
 
 export interface SubmitRunContext {

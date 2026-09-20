@@ -11,5 +11,29 @@
     "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
     "@typescript-eslint/no-explicit-any": "warn"
   },
+  "overrides": [
+    {
+      "files": ["src/core/**", "src/source/**", "src/capture/**", "src/adapters/**", "src/util/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "vscode",
+                "message": "This layer stays vscode-free so it can be unit-tested without an editor. Depend on an interface in core/ports.ts and let ui/ supply the implementation."
+              }
+            ],
+            "patterns": [
+              {
+                "group": ["**/ui/*", "../ui/**", "./ui/**"],
+                "message": "Pure layers must not import from ui/. Move the shared type into core/ports.ts."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
   "ignorePatterns": ["dist", "out", "node_modules", "*.js"]
 }

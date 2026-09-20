@@ -1,14 +1,14 @@
 import { readFileSync } from 'node:fs';
 import { join, relative, resolve, sep } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { sha256Hex } from '../../../src/core/hash';
-import { TestLocationResolver } from '../../../src/core/testLocation';
+import { sha256Hex } from '../../../src/capture/hash';
+import { TestLocationResolver } from '../../../src/capture/location';
 import {
   collectTestEvidence,
   describeSuspiciousTests,
-  type CollectEvidenceOptions,
+  type CaptureOptions,
   type TestEvidence,
-} from '../../../src/core/testEvidence';
+} from '../../../src/capture/evidence';
 import type { NormalizedTestCase, NormalizedTestRun } from '../../../src/core/types';
 
 const FOLDER = resolve('/project');
@@ -29,7 +29,7 @@ function run(results: NormalizedTestCase[], language = 'python'): NormalizedTest
 async function collect(
   testRun: NormalizedTestRun,
   files: Record<string, string>,
-  overrides: Partial<CollectEvidenceOptions> = {},
+  overrides: Partial<CaptureOptions> = {},
 ): Promise<Harness> {
   const absolute = new Map(
     Object.entries(files).map(([path, content]) => [resolve(FOLDER, path), content]),

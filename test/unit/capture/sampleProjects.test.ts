@@ -5,12 +5,12 @@ import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { buildTestRunRequest } from '../../../src/core/payload';
-import { TestLocationResolver } from '../../../src/core/testLocation';
+import { TestLocationResolver } from '../../../src/capture/location';
 import {
   collectTestEvidence,
   describeSuspiciousTests,
   type TestEvidence,
-} from '../../../src/core/testEvidence';
+} from '../../../src/capture/evidence';
 import type { NormalizedTestCase, NormalizedTestRun } from '../../../src/core/types';
 
 const EXAMPLES = resolve('c:/Moodle/examples');

@@ -6,12 +6,12 @@ import {
   getSourceCaptureSettings,
   getWarnOnSuspiciousTests,
 } from '../config/settings';
-import { TestLocationResolver } from '../core/testLocation';
+import { TestLocationResolver } from '../capture/location';
 import {
   collectTestEvidence,
   describeSuspiciousTests,
   type TestEvidence,
-} from '../core/testEvidence';
+} from '../capture/evidence';
 import {
   folderItemId,
   suiteDescription,
@@ -20,16 +20,16 @@ import {
   suiteLabel,
   testItemId,
   type KnownTest,
-} from '../core/testTree';
-import { resolveWorkspaceFolder, runTests, summarize } from '../core/testRunner';
+} from './testTree';
+import { runTests, summarize } from '../core/testRunner';
+import { pickAdapter, resolveWorkspaceFolder } from './workspacePicker';
 import { submitRun } from '../core/submitRun';
 import type { NormalizedTestCase, NormalizedTestRun } from '../core/types';
-import { describeError, handleCommandError } from '../commands/errorHandling';
-import { ensureConfigured } from '../onboarding';
+import { describeError, handleCommandError } from './errorHandling';
+import { ensureConfigured } from './onboarding';
 import type { MoodleApiClient } from '../services/moodleApiClient';
 import { confirmDegradedRun, describeFinding } from './degradedRunPrompt';
-import type { Logger } from './outputChannel';
-import type { StatusReporter } from './statusBar';
+import type { Logger, StatusReporter } from '../core/ports';
 
 const KNOWN_TESTS_KEY = 'moodleSubmit.knownTests';
 
@@ -350,10 +350,11 @@ export function registerTestController(
 
       deps.status.running();
       report?.('Running tests…');
-      const run = await runTests(deps.registry, folder, {
+      const run = await runTests(deps.registry, folder.uri.fsPath, {
         logger: deps.logger,
         signal: controllerAbort.signal,
         onOutput: (chunk) => testRun.appendOutput(toCrlf(chunk)),
+        pickFromMultiple: pickAdapter,
       });
 
       // One resolver for the whole run: its probe cache is what makes the second pass over the

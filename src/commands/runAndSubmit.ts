@@ -1,10 +1,9 @@
 import * as vscode from 'vscode';
-import { resolveWorkspaceFolder } from '../core/testRunner';
-import type { Logger } from '../ui/outputChannel';
-import type { StatusReporter } from '../ui/statusBar';
+import { resolveWorkspaceFolder } from '../ui/workspacePicker';
+import type { Logger, StatusReporter } from '../core/ports';
 import type { MoodleTestControl } from '../ui/testController';
 import { withProgress } from '../ui/progress';
-import { handleCommandError } from './errorHandling';
+import { handleCommandError } from '../ui/errorHandling';
 
 export function registerRunAndSubmitCommand(
   context: vscode.ExtensionContext,

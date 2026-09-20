@@ -1,18 +1,10 @@
-import * as vscode from 'vscode';
-import type { AdapterRegistry } from '../adapters/registry';
+import type { AdapterRegistry, ResolveAdapterOptions } from '../adapters/registry';
 import type { TestRunnerAdapter } from '../adapters/types';
 import type { NormalizedTestRun } from './types';
 import { getPreferredAdapterId, getTestCommandOverrides } from '../config/settings';
 import { MoodleSubmitError } from './errors';
-import type { Logger } from '../ui/outputChannel';
-import type { RunSummary } from '../ui/statusBar';
+import type { Logger, RunSummary } from './ports';
 import type { OutputSink } from '../util/shell';
-
-export class NoWorkspaceFolderError extends MoodleSubmitError {
-  constructor() {
-    super('Open a folder or workspace before running tests.');
-  }
-}
 
 export class NoTestResultsError extends MoodleSubmitError {
   constructor(adapter: TestRunnerAdapter, exitCode: number, reportError?: string) {
@@ -25,43 +17,6 @@ export class NoTestResultsError extends MoodleSubmitError {
             'a missing tool (e.g. mvn/gradle/pytest/dotnet not on PATH) or a build error, rather than an actual 0-test run.',
     );
   }
-}
-
-export async function resolveWorkspaceFolder(): Promise<vscode.WorkspaceFolder> {
-  const folders = vscode.workspace.workspaceFolders ?? [];
-  if (folders.length === 0) {
-    throw new NoWorkspaceFolderError();
-  }
-
-  const activeFolder = vscode.window.activeTextEditor
-    ? vscode.workspace.getWorkspaceFolder(vscode.window.activeTextEditor.document.uri)
-    : undefined;
-  if (activeFolder) {
-    return activeFolder;
-  }
-  if (folders.length === 1) {
-    return folders[0];
-  }
-
-  const pick = await vscode.window.showQuickPick(
-    folders.map((folder) => ({ label: folder.name, description: folder.uri.fsPath, folder })),
-    { placeHolder: 'Which folder holds the tests to run?' },
-  );
-  if (!pick) {
-    throw new NoWorkspaceFolderError();
-  }
-  return pick.folder;
-}
-
-async function pickAdapter(candidates: TestRunnerAdapter[]): Promise<TestRunnerAdapter> {
-  const pick = await vscode.window.showQuickPick(
-    candidates.map((candidate) => ({ label: candidate.displayName, adapter: candidate })),
-    { placeHolder: 'Multiple test frameworks detected — choose one' },
-  );
-  if (!pick) {
-    throw new MoodleSubmitError('No test adapter selected.');
-  }
-  return pick.adapter;
 }
 
 export function summarize(run: NormalizedTestRun): RunSummary {
@@ -77,19 +32,17 @@ export interface RunTestsOptions {
   signal?: AbortSignal;
   /** Streams the test command's output as it arrives, for live UI display. */
   onOutput?: OutputSink;
+  /** Asked only when a folder matches several frameworks. The UI layer supplies the prompt. */
+  pickFromMultiple?: ResolveAdapterOptions['pickFromMultiple'];
 }
 
 export async function runTests(
   registry: AdapterRegistry,
-  folder: vscode.WorkspaceFolder,
-  { logger, signal, onOutput }: RunTestsOptions,
+  folderPath: string,
+  { logger, signal, onOutput, pickFromMultiple }: RunTestsOptions,
 ): Promise<NormalizedTestRun> {
-  const folderPath = folder.uri.fsPath;
   const preferredAdapterId = getPreferredAdapterId();
-  const adapter = await registry.resolveAdapter(folderPath, {
-    preferredAdapterId,
-    pickFromMultiple: pickAdapter,
-  });
+  const adapter = await registry.resolveAdapter(folderPath, { preferredAdapterId, pickFromMultiple });
 
   // A forced adapter bypasses detection, so flag one that doesn't fit the folder.
   if (preferredAdapterId && !(await adapter.detect(folderPath))) {

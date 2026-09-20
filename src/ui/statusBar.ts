@@ -1,19 +1,9 @@
 import * as vscode from 'vscode';
+import type { RunSummary, StatusReporter } from '../core/ports';
 
-export interface RunSummary {
-  total: number;
-  passed: number;
-  failed: number;
-}
+export type DisposableStatusReporter = StatusReporter & vscode.Disposable;
 
-export interface StatusReporter extends vscode.Disposable {
-  running(): void;
-  result(summary: RunSummary): void;
-  error(message: string): void;
-  idle(): void;
-}
-
-export function createStatusReporter(): StatusReporter {
+export function createStatusReporter(): DisposableStatusReporter {
   const item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
   item.command = 'moodleSubmit.showOutput';
 

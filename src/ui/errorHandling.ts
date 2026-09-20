@@ -1,7 +1,6 @@
 import * as vscode from 'vscode';
 import { CancelledError, MoodleSubmitError } from '../core/errors';
-import type { Logger } from '../ui/outputChannel';
-import type { StatusReporter } from '../ui/statusBar';
+import type { Logger, StatusReporter } from '../core/ports';
 
 export function describeError(error: unknown): string {
   if (error instanceof MoodleSubmitError) return error.userMessage;

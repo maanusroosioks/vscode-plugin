@@ -1,9 +1,5 @@
 import * as vscode from 'vscode';
-
-
-export interface Logger {
-  log(message: string): void;
-}
+import type { Logger } from '../core/ports';
 
 let channel: vscode.OutputChannel | undefined;
 

@@ -170,7 +170,7 @@ ignores them and the submission still succeeds.
 | `moodleSubmit.authScopes` | Entra ID scopes for the standard service | OAuth scopes requested from the Microsoft provider. Change only for a different deployment. |
 | `moodleSubmit.testCommandOverrides` | `{}` | Per-adapter command overrides, e.g. `{ "maven-junit": "mvn -Pci test" }`. |
 | `moodleSubmit.preferredAdapter` | – | Force `maven-junit`, `gradle-junit`, `pytest`, or `dotnet-test` instead of auto-detecting. |
-| `moodleSubmit.submitTestSource` | `true` | Submit the source of each test. Turning this off still submits checksums and assertion counts. |
+| `moodleSubmit.submitTestSource` | `true` | Submit the source of each test. Turning this off still submits checksums. |
 | `moodleSubmit.maxTestSourceChars` | `8000` | Cap on the source captured for one test (hard ceiling 20 000). |
 | `moodleSubmit.maxTotalSourceChars` | `200000` | Cap on the source captured per submission (hard ceiling 500 000). |
 | `moodleSubmit.warnOnSuspiciousTests` | `true` | Warn before submitting when tests look emptied or disabled. Never blocks. |

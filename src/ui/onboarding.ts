@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { getServiceUrl } from './config/settings';
+import { getServiceUrl } from '../config/settings';
 
 const WALKTHROUGH_ID = 'setup';
 const NUDGE_DISMISSED_KEY = 'moodleSubmit.onboardingDismissed';

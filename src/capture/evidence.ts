@@ -1,10 +1,10 @@
-// Free of `vscode` imports: the UI layer hands in an already-constructed TestLocationResolver.
+// The UI layer hands in an already-constructed TestLocationResolver.
 
 import { readFile } from 'node:fs/promises';
 import { basename, isAbsolute, relative, sep } from 'node:path';
 import { sha256Hex } from './hash';
-import type { TestLocationResolver } from './testLocation';
-import { analyzeDeclaration, unlocatedIntegrity, type TestIntegrity } from './testIntegrity';
+import type { TestLocationResolver } from './location';
+import { analyzeDeclaration, unlocatedIntegrity, type TestIntegrity } from './integrity';
 import {
   languageForFile,
   matchDeclaration,
@@ -13,8 +13,8 @@ import {
   sliceLines,
   type SourceLanguage,
   type TestDeclaration,
-} from './testSource';
-import type { NormalizedTestRun, TestSourceKind } from './types';
+} from '../source';
+import type { NormalizedTestRun, TestSourceKind } from '../core/types';
 
 export interface TestSource {
   kind: TestSourceKind;
@@ -62,7 +62,7 @@ export interface TestEvidence {
   integrity: TestIntegrityEntry[];
 }
 
-export interface CollectEvidenceOptions {
+export interface CaptureOptions {
   folderPath: string;
   captureSource: boolean;
   maxTestChars: number;
@@ -128,7 +128,7 @@ function capCode(code: string, limit: number): { code: string; truncated: boolea
 export async function collectTestEvidence(
   run: NormalizedTestRun,
   resolver: TestLocationResolver,
-  options: CollectEvidenceOptions,
+  options: CaptureOptions,
 ): Promise<TestEvidence> {
   const read = options.readFile ?? ((path: string): Promise<string> => readFile(path, 'utf8'));
   const loaded = new Map<string, SourceFile | undefined>();

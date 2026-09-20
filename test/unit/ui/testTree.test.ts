@@ -7,7 +7,7 @@ import {
   suiteKey,
   suiteLabel,
   testItemId,
-} from '../../../src/core/testTree';
+} from '../../../src/ui/testTree';
 
 describe('testTree ids', () => {
   it('namespaces suites and tests under their folder', () => {

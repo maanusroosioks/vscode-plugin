@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildTestRunRequest, InvalidPayloadError } from '../../../src/core/payload';
 import type { NormalizedTestRun } from '../../../src/core/types';
 import type { SubmissionMetadata } from '../../../src/core/submissionMetadata';
-import type { TestEvidencePayload } from '../../../src/core/testEvidence';
+import type { TestEvidencePayload } from '../../../src/capture/evidence';
 
 const metadata: SubmissionMetadata = {
   assignmentKey: 'assignment-101',
