@@ -33,9 +33,16 @@ function textField(value: string | undefined, max: number): string | undefined {
 }
 
 function toSourceRequest(source: TestSource): TestSourceRequest {
+  if (source.kind === 'NONE') return { kind: 'NONE' };
+
+  const filePath = truncate(source.filePath, MAX_255) as string;
+  if (source.kind === 'FILE') {
+    return { kind: 'FILE', filePath, normalizedCodeHash: source.normalizedCodeHash };
+  }
+
   return {
-    kind: source.kind,
-    filePath: truncate(source.filePath, MAX_255),
+    kind: 'TEST',
+    filePath,
     startLine: source.startLine,
     endLine: source.endLine,
     code: source.code,

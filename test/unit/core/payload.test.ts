@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { buildTestRunRequest, InvalidPayloadError } from '../../../src/core/payload';
 import type { NormalizedTestRun } from '../../../src/core/types';
 import type { SubmissionMetadata } from '../../../src/core/submissionMetadata';
-import type { TestEvidencePayload } from '../../../src/capture/evidence';
+import type { DeclaredSource, TestEvidencePayload } from '../../../src/capture/evidence';
+import type { DeclaredSourceRequest, TestRunRequest } from '../../../src/services/httpTypes';
 
 const metadata: SubmissionMetadata = {
   assignmentKey: 'assignment-101',
@@ -102,6 +103,15 @@ describe('buildTestRunRequest', () => {
   });
 });
 
+/** sampleEvidence()'s first source is always the TEST arm, and these tests read and edit it as one. */
+function declared(payload: TestEvidencePayload): DeclaredSource {
+  return payload.sources[0] as DeclaredSource;
+}
+
+function declaredRequest(request: TestRunRequest): DeclaredSourceRequest {
+  return request.results[0].source as DeclaredSourceRequest;
+}
+
 function sampleEvidence(overrides: Partial<TestEvidencePayload> = {}): TestEvidencePayload {
   return {
     sources: [
@@ -199,31 +209,31 @@ describe('buildTestRunRequest — captured source', () => {
 
   it('keeps angle brackets in captured source — PARAM_TEXT stripping must not touch code', () => {
     const evidence = sampleEvidence();
-    evidence.sources[0].code =
+    declared(evidence).code =
       'public void t() {\n    Assert.Throws<DivideByZeroException>(() -> divide(1, 0));\n}';
 
     const request = buildTestRunRequest(sampleRun(), metadata, evidence);
 
-    expect(request.results[0].source?.code).toContain('Assert.Throws<DivideByZeroException>');
+    expect(declaredRequest(request).code).toContain('Assert.Throws<DivideByZeroException>');
   });
 
   it('truncates the file path', () => {
     const evidence = sampleEvidence();
-    evidence.sources[0].filePath = `${'p'.repeat(300)}.py`;
+    declared(evidence).filePath = `${'p'.repeat(300)}.py`;
 
     const request = buildTestRunRequest(sampleRun(), metadata, evidence);
 
-    expect(request.results[0].source?.filePath).toHaveLength(255);
+    expect(declaredRequest(request).filePath).toHaveLength(255);
   });
 
   it('passes the hash through untouched when the code was truncated', () => {
     const evidence = sampleEvidence();
-    evidence.sources[0].code = 'def test_adds():\n… [truncated by moodle-test-submit: 12 more characters]';
-    evidence.sources[0].truncated = true;
+    declared(evidence).code = 'def test_adds():\n… [truncated by moodle-test-submit: 12 more characters]';
+    declared(evidence).truncated = true;
 
     const request = buildTestRunRequest(sampleRun(), metadata, evidence);
 
-    expect(request.results[0].source?.normalizedCodeHash).toBe('b'.repeat(64));
-    expect(request.results[0].source?.truncated).toBe(true);
+    expect(declaredRequest(request).normalizedCodeHash).toBe('b'.repeat(64));
+    expect(declaredRequest(request).truncated).toBe(true);
   });
 });

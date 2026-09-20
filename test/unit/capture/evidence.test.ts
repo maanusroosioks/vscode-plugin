@@ -7,9 +7,12 @@ import {
   collectTestEvidence,
   describeSuspiciousTests,
   type CaptureOptions,
+  type DeclaredSource,
+  type FileSource,
   type TestEvidence,
 } from '../../../src/capture/evidence';
-import type { NormalizedTestCase, NormalizedTestRun } from '../../../src/core/types';
+import { sliceLines } from '../../../src/source';
+import type { NormalizedTestCase, NormalizedTestRun, TestSourceKind } from '../../../src/core/types';
 
 const FOLDER = resolve('/project');
 const PYTHON_SOURCE = readFileSync(
@@ -20,6 +23,15 @@ const PYTHON_SOURCE = readFileSync(
 interface Harness {
   evidence: TestEvidence;
   reads: string[];
+}
+
+/** The union widened back out: these tests assert across all three arms on fields the tag gates. */
+type AnySource = Partial<Omit<DeclaredSource, 'kind'> & Omit<FileSource, 'kind'>> & {
+  kind: TestSourceKind;
+};
+
+function sourcesOf(evidence: TestEvidence): AnySource[] {
+  return evidence.payload.sources as AnySource[];
 }
 
 function run(results: NormalizedTestCase[], language = 'python'): NormalizedTestRun {
@@ -73,14 +85,20 @@ describe('collectTestEvidence — source capture', () => {
       PYTHON_FILES,
     );
 
-    const source = evidence.payload.sources[0];
+    const source = sourcesOf(evidence)[0];
     expect(source.kind).toBe('TEST');
     expect(source.filePath).toBe('test_calculator.py');
-    expect(source.code).toContain('@pytest.mark.parametrize');
-    expect(source.code).toContain('assert divide(a, b) == expected');
-    expect(source.code).not.toContain('def test_uses_a_nested_helper');
     expect(source.startLine).toBeLessThan(source.endLine as number);
+
+    // The whole file fits, so the lines are the only copy sent — no snippet beside them.
+    expect(source.code).toBeUndefined();
     expect(source.truncated).toBeUndefined();
+    expect(evidence.payload.files[0].content).toBe(PYTHON_SOURCE);
+
+    const sliced = sliceLines(PYTHON_SOURCE, source.startLine as number, source.endLine as number);
+    expect(sliced).toContain('@pytest.mark.parametrize');
+    expect(sliced).toContain('assert divide(a, b) == expected');
+    expect(sliced).not.toContain('def test_uses_a_nested_helper');
   });
 
   it('points an unmatched test at the file instead of copying it', async () => {
@@ -89,9 +107,9 @@ describe('collectTestEvidence — source capture', () => {
       PYTHON_FILES,
     );
 
-    expect(evidence.payload.sources[0].kind).toBe('FILE');
-    expect(evidence.payload.sources[0].code).toBeUndefined();
-    expect(evidence.payload.sources[0].filePath).toBe('test_calculator.py');
+    expect(sourcesOf(evidence)[0].kind).toBe('FILE');
+    expect(sourcesOf(evidence)[0].code).toBeUndefined();
+    expect(sourcesOf(evidence)[0].filePath).toBe('test_calculator.py');
     expect(evidence.integrity[0].integrity).toEqual({ located: false });
     expect(evidence.payload.files[0].content).toBe(PYTHON_SOURCE);
   });
@@ -105,8 +123,8 @@ describe('collectTestEvidence — source capture', () => {
     }));
     const { evidence } = await collect(run(unmatched), PYTHON_FILES);
 
-    expect(evidence.payload.sources.every((source) => source.kind === 'FILE')).toBe(true);
-    expect(evidence.payload.sources.every((source) => source.code === undefined)).toBe(true);
+    expect(sourcesOf(evidence).every((source) => source.kind === 'FILE')).toBe(true);
+    expect(sourcesOf(evidence).every((source) => source.code === undefined)).toBe(true);
     expect(evidence.payload.files).toHaveLength(1);
 
     const serialized = JSON.stringify(evidence);
@@ -120,7 +138,7 @@ describe('collectTestEvidence — source capture', () => {
       PYTHON_FILES,
     );
 
-    expect(evidence.payload.sources[0]).toEqual({ kind: 'NONE' });
+    expect(sourcesOf(evidence)[0]).toEqual({ kind: 'NONE' });
     expect(evidence.integrity[0].integrity.located).toBe(false);
   });
 
@@ -145,7 +163,7 @@ describe('collectTestEvidence — paths must not leak the student', () => {
       { [join('tests', 'test_calculator.py')]: PYTHON_SOURCE },
     );
 
-    expect(evidence.payload.sources[0].filePath).toBe('tests/test_calculator.py');
+    expect(sourcesOf(evidence)[0].filePath).toBe('tests/test_calculator.py');
   });
 
   it('degrades to the basename for a file outside the workspace folder', async () => {
@@ -171,8 +189,8 @@ describe('collectTestEvidence — paths must not leak the student', () => {
       readFile: async () => 'def test_x():\n    assert True\n',
     });
 
-    expect(evidence.payload.sources[0].filePath).toBe('test_outside.py');
-    expect(evidence.payload.sources[0].filePath).not.toContain(sep);
+    expect(sourcesOf(evidence)[0].filePath).toBe('test_outside.py');
+    expect(sourcesOf(evidence)[0].filePath).not.toContain(sep);
     expect(relative(FOLDER, outside).startsWith('..')).toBe(true);
   });
 });
@@ -184,12 +202,13 @@ describe('collectTestEvidence — hashes', () => {
 
   it('hashes the untruncated snippet even when the snippet is capped', async () => {
     const full = await collect(single, PYTHON_FILES);
-    const capped = await collect(single, PYTHON_FILES, { maxTestChars: 12 });
+    // Too tight for the file, so the test falls back to a snippet, which the cap then truncates.
+    const capped = await collect(single, PYTHON_FILES, { maxTestChars: 12, maxTotalChars: 200 });
 
-    expect(capped.evidence.payload.sources[0].truncated).toBe(true);
-    expect(capped.evidence.payload.sources[0].code).toContain('more characters]');
-    expect(capped.evidence.payload.sources[0].normalizedCodeHash).toBe(
-      full.evidence.payload.sources[0].normalizedCodeHash,
+    expect(sourcesOf(capped.evidence)[0].truncated).toBe(true);
+    expect(sourcesOf(capped.evidence)[0].code).toContain('more characters]');
+    expect(sourcesOf(capped.evidence)[0].normalizedCodeHash).toBe(
+      sourcesOf(full.evidence)[0].normalizedCodeHash,
     );
   });
 
@@ -201,8 +220,8 @@ describe('collectTestEvidence — hashes', () => {
     const before = await collect(testRun, { 'test_add.py': source });
     const after = await collect(testRun, { 'test_add.py': reformatted });
 
-    expect(after.evidence.payload.sources[0].normalizedCodeHash).toBe(
-      before.evidence.payload.sources[0].normalizedCodeHash,
+    expect(sourcesOf(after.evidence)[0].normalizedCodeHash).toBe(
+      sourcesOf(before.evidence)[0].normalizedCodeHash,
     );
     // The file did change, which is what the file hash is for.
     expect(after.evidence.payload.files[0].sha256).not.toBe(before.evidence.payload.files[0].sha256);
@@ -217,8 +236,8 @@ describe('collectTestEvidence — hashes', () => {
     const before = await collect(testRun, { 'test_x.py': nested });
     const after = await collect(testRun, { 'test_x.py': flat });
 
-    expect(after.evidence.payload.sources[0].normalizedCodeHash).not.toBe(
-      before.evidence.payload.sources[0].normalizedCodeHash,
+    expect(sourcesOf(after.evidence)[0].normalizedCodeHash).not.toBe(
+      sourcesOf(before.evidence)[0].normalizedCodeHash,
     );
   });
 
@@ -230,8 +249,8 @@ describe('collectTestEvidence — hashes', () => {
     const before = await collect(testRun, { 'test_x.py': fourSpace });
     const after = await collect(testRun, { 'test_x.py': twoSpace });
 
-    expect(after.evidence.payload.sources[0].normalizedCodeHash).toBe(
-      before.evidence.payload.sources[0].normalizedCodeHash,
+    expect(sourcesOf(after.evidence)[0].normalizedCodeHash).toBe(
+      sourcesOf(before.evidence)[0].normalizedCodeHash,
     );
   });
 
@@ -249,8 +268,8 @@ describe('collectTestEvidence — hashes', () => {
     const before = await collect(testRun, { [file]: wide });
     const after = await collect(testRun, { [file]: narrow });
 
-    expect(after.evidence.payload.sources[0].normalizedCodeHash).not.toBe(
-      before.evidence.payload.sources[0].normalizedCodeHash,
+    expect(sourcesOf(after.evidence)[0].normalizedCodeHash).not.toBe(
+      sourcesOf(before.evidence)[0].normalizedCodeHash,
     );
   });
 
@@ -260,8 +279,8 @@ describe('collectTestEvidence — hashes', () => {
     const before = await collect(testRun, { 'test_x.py': 'def test_x():\n    assert f(v) == "a b"\n' });
     const after = await collect(testRun, { 'test_x.py': 'def test_x():\n    assert  f(v)  ==  "a b"\n' });
 
-    expect(after.evidence.payload.sources[0].normalizedCodeHash).toBe(
-      before.evidence.payload.sources[0].normalizedCodeHash,
+    expect(sourcesOf(after.evidence)[0].normalizedCodeHash).toBe(
+      sourcesOf(before.evidence)[0].normalizedCodeHash,
     );
   });
 
@@ -274,8 +293,8 @@ describe('collectTestEvidence — hashes', () => {
       'test_add.py': 'def test_add():\n    assert add(2, 3) == 6\n',
     });
 
-    expect(after.evidence.payload.sources[0].normalizedCodeHash).not.toBe(
-      before.evidence.payload.sources[0].normalizedCodeHash,
+    expect(sourcesOf(after.evidence)[0].normalizedCodeHash).not.toBe(
+      sourcesOf(before.evidence)[0].normalizedCodeHash,
     );
   });
 
@@ -296,7 +315,7 @@ describe('collectTestEvidence — hashes', () => {
       },
     ]);
     // filePath is the join key from a result back into files.
-    for (const source of evidence.payload.sources) {
+    for (const source of sourcesOf(evidence)) {
       expect(source.filePath).toBe(evidence.payload.files[0].path);
     }
   });
@@ -312,10 +331,10 @@ describe('collectTestEvidence — budget and opt-out', () => {
   it('drops code but keeps hashes and integrity once the budget is spent', async () => {
     const { evidence } = await collect(three, PYTHON_FILES, { maxTotalChars: 120 });
 
-    expect(evidence.payload.sources[0].code).toBeDefined();
+    expect(sourcesOf(evidence)[0].code).toBeDefined();
 
     // Still located, so still `TEST` — only the code is missing.
-    const dropped = evidence.payload.sources[evidence.payload.sources.length - 1];
+    const dropped = sourcesOf(evidence)[sourcesOf(evidence).length - 1];
     expect(dropped.kind).toBe('TEST');
     expect(dropped.code).toBeUndefined();
     expect(dropped.normalizedCodeHash).toHaveLength(64);
@@ -323,10 +342,36 @@ describe('collectTestEvidence — budget and opt-out', () => {
     expect(evidence.integrity[evidence.integrity.length - 1].integrity.located).toBe(true);
   });
 
+  it('reads a covered test off its file rather than sending the body twice', async () => {
+    const { evidence } = await collect(three, PYTHON_FILES);
+
+    expect(sourcesOf(evidence).every((source) => source.kind === 'TEST')).toBe(true);
+    expect(sourcesOf(evidence).every((source) => source.code === undefined)).toBe(true);
+    expect(evidence.payload.files[0].content).toBe(PYTHON_SOURCE);
+
+    const serialized = JSON.stringify(evidence.payload);
+    expect(serialized.split('assert add(2, 3) == 5').length - 1).toBe(1);
+  });
+
+  it('falls back to a snippet for the tests a truncated file cuts off', async () => {
+    const early = { testSuite: 'test_calculator', testName: 'test_add_returns_sum', status: 'PASSED' as const };
+    const late = { testSuite: 'test_calculator', testName: 'test_brace_in_a_string', status: 'PASSED' as const };
+    // Enough for most of the 1218-char file, not for the tail — and the reserve still funds the snippet.
+    const { evidence } = await collect(run([early, late]), PYTHON_FILES, { maxTotalChars: 900 });
+
+    const file = evidence.payload.files[0];
+    expect(file.truncated).toBe(true);
+    expect(file.content).toContain('assert add(2, 3) == 5');
+    expect(file.content).not.toContain('assert "{" + "}" == "{}"');
+
+    expect(sourcesOf(evidence)[0].code).toBeUndefined();
+    expect(sourcesOf(evidence)[1].code).toContain('assert "{" + "}" == "{}"');
+  });
+
   it('opting out of source still submits hashes', async () => {
     const { evidence } = await collect(three, PYTHON_FILES, { captureSource: false });
 
-    for (const source of evidence.payload.sources) {
+    for (const source of sourcesOf(evidence)) {
       expect(source.kind).toBe('TEST');
       expect(source.code).toBeUndefined();
       expect(source.normalizedCodeHash).toHaveLength(64);
@@ -340,7 +385,7 @@ describe('collectTestEvidence — budget and opt-out', () => {
     const maxTotalChars = 120;
     const { evidence } = await collect(three, PYTHON_FILES, { maxTotalChars, maxTestChars: 50 });
 
-    const captured = evidence.payload.sources.reduce(
+    const captured = sourcesOf(evidence).reduce(
       (total, source) => total + (source.code?.length ?? 0),
       0,
     );
@@ -349,7 +394,7 @@ describe('collectTestEvidence — budget and opt-out', () => {
       0,
     );
 
-    expect(evidence.payload.sources.some((source) => source.truncated)).toBe(true);
+    expect(sourcesOf(evidence).some((source) => source.truncated)).toBe(true);
     expect(captured + inFiles).toBeLessThanOrEqual(maxTotalChars);
   });
 
@@ -398,11 +443,11 @@ describe('collectTestEvidence — tamper detection', () => {
     const before = await collect(testRun, PYTHON_FILES);
     const after = await collect(testRun, { 'test_calculator.py': gutted });
 
-    expect(after.evidence.payload.sources[0].normalizedCodeHash).not.toBe(
-      before.evidence.payload.sources[0].normalizedCodeHash,
+    expect(sourcesOf(after.evidence)[0].normalizedCodeHash).not.toBe(
+      sourcesOf(before.evidence)[0].normalizedCodeHash,
     );
-    expect(after.evidence.payload.sources[1].normalizedCodeHash).toBe(
-      before.evidence.payload.sources[1].normalizedCodeHash,
+    expect(sourcesOf(after.evidence)[1].normalizedCodeHash).toBe(
+      sourcesOf(before.evidence)[1].normalizedCodeHash,
     );
     expect(after.evidence.payload.files[0].sha256).not.toBe(before.evidence.payload.files[0].sha256);
 
@@ -426,8 +471,8 @@ describe('collectTestEvidence — tamper detection', () => {
     const before = await collect(testRun, PYTHON_FILES);
     const after = await collect(testRun, { 'test_calculator.py': sabotaged });
 
-    for (const [index, source] of after.evidence.payload.sources.entries()) {
-      expect(source.normalizedCodeHash).toBe(before.evidence.payload.sources[index].normalizedCodeHash);
+    for (const [index, source] of sourcesOf(after.evidence).entries()) {
+      expect(source.normalizedCodeHash).toBe(sourcesOf(before.evidence)[index].normalizedCodeHash);
     }
     expect(after.evidence.payload.files[0].sha256).not.toBe(before.evidence.payload.files[0].sha256);
     // Nothing about the tests themselves looks wrong — the file hash is the only handle.

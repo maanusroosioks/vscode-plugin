@@ -9,13 +9,25 @@ import { TestLocationResolver } from '../../../src/capture/location';
 import {
   collectTestEvidence,
   describeSuspiciousTests,
+  type DeclaredSource,
+  type FileSource,
   type TestEvidence,
 } from '../../../src/capture/evidence';
-import type { NormalizedTestCase, NormalizedTestRun } from '../../../src/core/types';
+import { sliceLines } from '../../../src/source';
+import type { NormalizedTestCase, NormalizedTestRun, TestSourceKind } from '../../../src/core/types';
 
 const EXAMPLES = resolve('c:/Moodle/examples');
 
 const metadata = { assignmentKey: 'sample-assignment', projectName: 'sample' };
+
+/** The union widened back out: these tests assert across all three arms on fields the tag gates. */
+type AnySource = Partial<Omit<DeclaredSource, 'kind'> & Omit<FileSource, 'kind'>> & {
+  kind: TestSourceKind;
+};
+
+function sourcesOf(evidence: TestEvidence): AnySource[] {
+  return evidence.payload.sources as AnySource[];
+}
 
 async function evidenceFor(folder: string, run: NormalizedTestRun): Promise<TestEvidence> {
   return collectTestEvidence(run, new TestLocationResolver(folder, run.language), {
@@ -34,9 +46,14 @@ function run(
   return { adapterId, language, startedAt: 1000, finishedAt: 2000, results };
 }
 
+/** Reads a test back the way the grader has to: slice its file, falling back to the snippet. */
 function codeFor(evidence: TestEvidence, index: number): string {
-  const source = evidence.payload.sources[index];
+  const source = sourcesOf(evidence)[index];
   expect(source.kind).toBe('TEST');
+  const file = evidence.payload.files.find((candidate) => candidate.path === source.filePath);
+  if (file?.content && !file.truncated) {
+    return sliceLines(file.content, source.startLine as number, source.endLine as number);
+  }
   return source.code as string;
 }
 
@@ -68,9 +85,9 @@ describe.skipIf(!existsSync(pythonSample))('python-sample', () => {
     const evidence = await evidenceFor(pythonSample, testRun);
 
     expect(located(evidence)).toBe(5);
-    expect(evidence.payload.sources.every((source) => source.kind === 'TEST')).toBe(true);
+    expect(sourcesOf(evidence).every((source) => source.kind === 'TEST')).toBe(true);
     expect(
-      evidence.payload.sources.every((source) => source.filePath === 'test_calculator.py'),
+      sourcesOf(evidence).every((source) => source.filePath === 'test_calculator.py'),
     ).toBe(true);
   });
 
@@ -79,8 +96,8 @@ describe.skipIf(!existsSync(pythonSample))('python-sample', () => {
 
     expect(codeFor(evidence, 1)).toContain('@pytest.mark.parametrize');
     expect(codeFor(evidence, 1)).toContain('assert divide(a, b) == expected');
-    expect(evidence.payload.sources[1].normalizedCodeHash).toBe(
-      evidence.payload.sources[2].normalizedCodeHash,
+    expect(sourcesOf(evidence)[1].normalizedCodeHash).toBe(
+      sourcesOf(evidence)[2].normalizedCodeHash,
     );
     expect(codeFor(evidence, 1)).not.toContain('def test_divide_by_zero_raises');
   });
@@ -115,7 +132,7 @@ describe.skipIf(!existsSync(mavenSample) || !existsSync(gradleSample))('java sam
     const evidence = await evidenceFor(folder, testRun);
 
     expect(located(evidence)).toBe(3);
-    expect(evidence.payload.sources[0].filePath).toBe(
+    expect(sourcesOf(evidence)[0].filePath).toBe(
       'src/test/java/com/example/calculator/CalculatorTest.java',
     );
     expect(codeFor(evidence, 0)).toContain('assertEquals(5, Calculator.add(2, 3));');
@@ -141,7 +158,7 @@ describe.skipIf(!existsSync(dotnetSample))('dotnet-sample', () => {
     const evidence = await evidenceFor(dotnetSample, testRun);
 
     expect(located(evidence)).toBe(3);
-    expect(evidence.payload.sources[0].filePath).toBe('CalculatorTests.cs');
+    expect(sourcesOf(evidence)[0].filePath).toBe('CalculatorTests.cs');
     expect(codeFor(evidence, 1)).toContain('[Theory]');
     expect(codeFor(evidence, 1)).toContain('[InlineData(10, 2, 5)]');
     expect(codeFor(evidence, 1)).toContain('[InlineData(9, 3, 3)]');
@@ -152,8 +169,8 @@ describe.skipIf(!existsSync(dotnetSample))('dotnet-sample', () => {
     const request = buildTestRunRequest(testRun, metadata, evidence.payload);
 
     // Sanitized for Moodle PARAM_TEXT, but the captured code must survive verbatim.
-    expect(request.results[2].source?.code).toContain('Assert.Throws<DivideByZeroException>');
-    expect(request.results[2].source?.normalizedCodeHash).toHaveLength(64);
+    expect(request.testFiles?.[0].content).toContain('Assert.Throws<DivideByZeroException>');
+    expect((request.results[2].source as DeclaredSource).normalizedCodeHash).toHaveLength(64);
     expect(request).not.toHaveProperty('integrity');
   });
 });

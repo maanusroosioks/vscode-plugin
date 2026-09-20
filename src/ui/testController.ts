@@ -298,17 +298,23 @@ export function registerTestController(
         ...getSourceCaptureSettings(),
       });
       const { sources, files } = evidence.payload;
-      let captured = 0;
+      let located = 0;
+      // Snippets are the fallback for lines their file could not carry, so counting them as the
+      // captured total would read as a failure on the normal path, where every file went whole.
+      let snippets = 0;
       let chars = 0;
       for (const source of sources) {
+        if (source.kind !== 'TEST') continue;
+        located++;
         if (source.code === undefined) continue;
-        captured++;
+        snippets++;
         chars += source.code.length;
       }
       const fileChars = files.reduce((total, file) => total + (file.content?.length ?? 0), 0);
+      const fallback = snippets > 0 ? `, plus ${snippets} snippet(s) (${chars} chars)` : '';
       deps.logger.log(
-        `Captured source for ${captured}/${run.results.length} tests (${chars} chars) ` +
-          `and ${files.length} file(s) (${fileChars} chars).`,
+        `Located ${located}/${run.results.length} tests in ${files.length} file(s) ` +
+          `(${fileChars} chars)${fallback}.`,
       );
       return evidence;
     } catch (error) {

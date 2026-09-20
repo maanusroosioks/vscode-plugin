@@ -5,28 +5,59 @@ export type { TestSourceKind };
 
 export type Ide = 'VSCODE';
 
-export interface TestSourceRequest {
-  kind: TestSourceKind;
-  /** Workspace-relative, forward slashes. Never absolute. */
-  filePath?: string;
-  /** 1-based, in the original file. */
-  startLine?: number;
-  endLine?: number;
-  /** LF-normalized. May end with a truncation marker — see `normalizedCodeHash`. */
-  code?: string;
-  truncated?: boolean;
-  /**
-   * sha256 of the snippet with comments dropped and whitespace collapsed, so comparing it against
-   * the previous run answers "changed, or only reformatted?" without the receiver implementing
-   * language-aware normalization. Taken over the UNTRUNCATED snippet, so when `truncated` is true
-   * it deliberately does not correspond to `code` — never hash `code` itself.
-   */
-  normalizedCodeHash?: string;
+/** The test was not found in the project's source at all: only the framework's own report exists. */
+export interface UnlocatedSourceRequest {
+  kind: 'NONE';
 }
 
 /**
- * Each distinct test file once. A `kind: "FILE"` result carries no `code` and is read from here
- * via `filePath`, costing one copy per file rather than one per test.
+ * The file was found, but the test could not be picked out of it — the scanner knows no declarations
+ * for this language, or none matched. Read the whole file from `testFiles`.
+ */
+export interface FileSourceRequest {
+  kind: 'FILE';
+  /** Workspace-relative, forward slashes. Never absolute. */
+  filePath: string;
+  /** Over the whole file — never comparable against a `kind: "TEST"` hash. */
+  normalizedCodeHash: string;
+}
+
+export interface DeclaredSourceRequest {
+  kind: 'TEST';
+  /** Workspace-relative, forward slashes. Never absolute. */
+  filePath: string;
+  /**
+   * 1-based, in the original file, and the normal way to read this test: find `filePath` in
+   * `testFiles` and slice this range out of its `content`. Both are LF-normalized, so the range
+   * is exact.
+   */
+  startLine: number;
+  endLine: number;
+  /**
+   * LF-normalized. Fallback only: present when `testFiles` cannot supply the lines above, because
+   * its `content` was dropped or was truncated before `endLine`. May end with a truncation marker
+   * of its own — see `normalizedCodeHash`.
+   */
+  code?: string;
+  truncated?: boolean;
+  /**
+   * sha256 of the declaration with comments dropped and whitespace collapsed, so comparing it
+   * against the previous run answers "changed, or only reformatted?" without the receiver
+   * implementing language-aware normalization. Taken over the UNTRUNCATED declaration, so when
+   * `truncated` is true it deliberately does not correspond to `code` — never hash `code` itself.
+   */
+  normalizedCodeHash: string;
+}
+
+/** Discriminated on `kind`: it says which fields are present and what `normalizedCodeHash` covers. */
+export type TestSourceRequest =
+  | UnlocatedSourceRequest
+  | FileSourceRequest
+  | DeclaredSourceRequest;
+
+/**
+ * Each distinct test file once, and the source every located result is read from via `filePath`:
+ * one copy per file rather than one per test, with no test's body sent twice.
  */
 export interface TestSourceFileRequest {
   /** Workspace-relative, forward slashes. Matches `TestSourceRequest.filePath`. */
@@ -35,6 +66,7 @@ export interface TestSourceFileRequest {
   sha256: string;
   /** LF-normalized. Absent when capture is off or the per-submission budget ran out. */
   content?: string;
+  /** Cut at a character boundary, so line numbers still hold for what remains. */
   truncated?: boolean;
 }
 
